@@ -1,95 +1,102 @@
-# Misi Harian Kemandirian
+# Kids Tracker
 
-Dashboard misi harian untuk membantu anak membangun kebiasaan baik & mandiri —
-Sean (11 tahun) dan Gavril (6 tahun) — dengan progres yang **tersimpan di
-database (bukan localStorage)**, jadi bisa diakses dari HP orang tua maupun
-anak lewat satu link Vercel yang sama, dan datanya tidak hilang atau terkunci
-di satu device.
+Satu layar sederhana untuk daftar tugas harian Sean (11 tahun) dan Gavril
+(6 tahun). Tiap anak punya daftar tugasnya sendiri, tugas untuk hari kerja
+dan akhir pekan bisa berbeda, dan tiap orang cuma bisa mencentang tugas
+miliknya sendiri. Semua orang bisa melihat semua baris tanpa login apa pun.
 
-Tema visual (dark navy, gold/cinnabar, bintang berkelip, ring progress, bar
-mingguan) dipertahankan persis dari versi HTML/localStorage sebelumnya.
+Tidak ada notifikasi, tidak ada dark mode, tidak ada pengaturan lain — sengaja
+dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 
-## Yang baru dibanding versi lama
+## Cara pakai
 
-1. **Data di Postgres (Vercel Postgres / Neon)**, bukan localStorage — buka
-   dari device manapun, data yang sama muncul di semua tempat (polling setiap
-   ~15 detik + refresh saat tab difokuskan, jadi "hampir real-time").
-2. **Mode akses**: **Anak** (default, langsung centang tugas tanpa login) vs
-   **Ortu** (dikunci PIN sederhana, untuk lihat rekap bulanan & export CSV).
-   PIN diverifikasi di server (route handler), tidak pernah dikirim ke
-   frontend dalam bentuk plain.
-3. **Rekap bulanan** (selain harian & mingguan yang sudah ada), plus **export
-   CSV** per bulan di mode Ortu untuk arsip pribadi.
+1. Buka link Vercel dari HP.
+2. Pilih nama kamu (Sean atau Gavril) — sekali saja, tersimpan otomatis di HP
+   itu. Kalau HP dipakai bergantian, tap **Ganti** di pojok atas untuk pilih
+   nama lain.
+3. Tap tugas yang sudah selesai. Tugas milikmu bisa ditap, tugas milik anak
+   satunya cuma bisa dilihat (abu-abu, tidak bisa ditap dari HP-mu).
+4. Tugas yang muncul otomatis menyesuaikan hari ini — tugas khusus hari
+   sekolah tidak muncul di weekend, dan sebaliknya.
+5. Kalau dua HP dibuka bersamaan, centang di satu HP akan muncul di HP lain
+   dalam beberapa detik tanpa perlu refresh manual.
 
 ## Struktur teknis
 
-- **Next.js (App Router, TypeScript)** — di-deploy ke Vercel lewat integrasi
-  GitHub yang sudah aktif (push ke branch ini otomatis ter-deploy).
-- **Database**: Vercel Postgres (Neon), diakses lewat `@neondatabase/serverless`
-  dari Route Handlers di `src/app/api/*` (bukan langsung dari browser, supaya
-  connection string tidak pernah terekspos ke client).
-- **Task list & logic reward/bonus**: `src/lib/tasks.ts` — daftar tugas Sean &
-  Gavril, tier reward harian, bonus mingguan, persis sama dengan versi lama.
-- **Agregasi rekap** (harian/mingguan/bulanan, streak): `src/lib/recap.ts`.
+- **Next.js (App Router, TypeScript)** — deploy ke Vercel lewat integrasi
+  GitHub (push ke branch ini otomatis ter-deploy).
+- **Daftar anak & tugas statis di kode**: `src/lib/tasks.ts`. Tidak ada layar
+  untuk menambah/mengedit tugas dari HP — supaya app tetap sesederhana
+  mungkin. Untuk mengubah tugas, edit array di file itu lalu push, Vercel
+  otomatis deploy ulang.
+- **Yang tersimpan di database** hanya status "sudah/belum" per anak, per
+  tugas, per tanggal (tabel `completions`).
+- **Sinkron antar HP**: setiap HP polling ke server tiap 4 detik + saat layar
+  dibuka lagi (mendekati real-time tanpa perlu WebSocket).
 
-## Setup — sekali saja
+## Setup — sekali saja di dashboard Vercel
 
-### 1. Sambungkan Vercel Postgres (Neon)
+### 1. Deploy project ke Vercel
 
-Di dashboard Vercel, buka project ini → tab **Storage** → **Create Database**
-→ pilih **Postgres (Neon)** → sambungkan ke project. Vercel otomatis mengisi
-environment variable `DATABASE_URL` untuk Production, Preview, dan
-Development.
+Kalau belum pernah di-import: di dashboard Vercel, klik **Add New → Project**,
+pilih repo `aplikasi-pertamaku`, klik **Deploy**. Vercel otomatis mendeteksi
+Next.js, tidak perlu ubah setting apa pun.
 
-### 2. Jalankan migrasi schema
+### 2. Sambungkan database (Vercel Postgres via Neon)
 
-Buka **Neon SQL editor** (lewat tab Storage project → klik database → "Open
-in Neon" / "Query") dan jalankan isi file [`migrations/001_init.sql`](migrations/001_init.sql).
-File ini membuat tabel `children`, `tasks`, `entries`, lengkap dengan seed
-data 22 tugas Sean dan 17 tugas Gavril.
+1. Buka project ini di dashboard Vercel → tab **Storage**.
+2. Klik **Create Database** → pilih **Postgres** (disediakan oleh Neon) →
+   **Connect** ke project ini.
+3. Vercel otomatis mengisi environment variable `DATABASE_URL` (Production,
+   Preview, Development) — kamu tidak perlu isi manual.
 
-Alternatif lewat terminal (butuh `psql`, connection string dari Vercel
-Storage tab):
+### 3. Jalankan migrasi tabel (sekali saja)
+
+1. Di tab **Storage**, klik database yang baru dibuat → buka **Query** /
+   **Open in Neon** (SQL editor bawaan Neon).
+2. Salin isi file [`migrations/001_init.sql`](migrations/001_init.sql), tempel
+   di SQL editor, lalu jalankan (Run). Ini membuat satu tabel `completions`.
+
+Alternatif lewat terminal (kalau punya `psql`):
 
 ```bash
+vercel env pull .env.local   # ambil DATABASE_URL dari Vercel
 psql "$DATABASE_URL" -f migrations/001_init.sql
 ```
 
-### 3. Set PIN mode Ortu
+### 4. Selesai
 
-Di Vercel → Project Settings → Environment Variables, tambahkan:
+Buka URL deployment dari HP. Tidak ada environment variable lain yang wajib
+diisi.
 
-```
-PARENT_PIN=1234
-```
-
-(bebas berapa digit/angka, ganti sesuai keinginan). Redeploy sekali setelah
-menambahkan variable ini kalau deployment sebelumnya sudah berjalan duluan.
-
-### 4. Development lokal (opsional)
+## Development lokal (opsional)
 
 ```bash
-vercel env pull .env.local   # menarik DATABASE_URL & PARENT_PIN dari Vercel
+vercel env pull .env.local   # menarik DATABASE_URL dari Vercel
 npm install
 npm run dev
 ```
 
 Buka http://localhost:3000.
 
-## Alur pakai sehari-hari
+## Mengubah daftar tugas
 
-- **Anak**: buka link Vercel, pilih tab nama anak, centang tugas yang sudah
-  selesai. Poin, ring capaian, reward harian, dan bar mingguan langsung
-  ter-update.
-- **Ortu**: klik "🔒 Mode Ortu", masukkan PIN, lihat rekap bulanan & histori,
-  atau export CSV untuk arsip.
-- Buka link yang sama dari HP lain (anak atau orang tua) — progres yang sudah
-  dicentang akan muncul juga di sana (tunggu beberapa detik / refresh halaman).
+Edit `src/lib/tasks.ts` — tiap tugas berupa:
 
-## Catatan keamanan
+```ts
+{ id: "s5", label: "Beres tas & buku besok", weekdayOnly: true }
+```
 
-PIN Ortu adalah pengaman sederhana di level UI (sesuai kebutuhan aplikasi
-keluarga, bukan sistem multi-tenant), diverifikasi di server via
-`PARENT_PIN` dan disimpan sebagai cookie httpOnly bertanda tangan HMAC
-selama 12 jam. Endpoint export CSV memvalidasi cookie ini di server sebelum
-mengirim data.
+- `label`: teks tugas (usahakan singkat, di bawah 50 karakter).
+- `weekdayOnly: true`: hanya muncul Senin–Jumat.
+- `weekendOnly: true`: hanya muncul Sabtu–Minggu.
+- Tanpa keduanya: muncul tiap hari.
+
+Setelah edit, commit & push — Vercel otomatis deploy ulang.
+
+## Catatan
+
+"Kamu siapa" cuma disimpan di local storage HP masing-masing, tanpa
+password. Ini disengaja (aplikasi keluarga, bukan sistem multi-tenant) —
+cukup untuk mencegah salah tap secara tidak sengaja, bukan proteksi
+keamanan yang ketat.

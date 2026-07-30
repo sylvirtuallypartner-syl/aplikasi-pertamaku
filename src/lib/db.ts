@@ -1,5 +1,4 @@
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
-import { EntryRow } from "./recap";
 
 let cachedSql: NeonQueryFunction<false, false> | null = null;
 
@@ -19,37 +18,33 @@ function getSql(): NeonQueryFunction<false, false> {
   return cachedSql;
 }
 
-export async function getEntriesForRange(
-  childId: string,
-  start: string,
-  end: string
-): Promise<EntryRow[]> {
-  const sql = getSql();
-  const rows = await sql`
-    select task_id, entry_date::text as entry_date, value
-    from entries
-    where child_id = ${childId} and entry_date between ${start} and ${end}
-    order by entry_date, task_id
-  `;
-  return rows as unknown as EntryRow[];
+export interface CompletionRow {
+  child_id: string;
+  task_id: string;
+  done: boolean;
 }
 
-export async function upsertEntry(
+export async function getCompletionsForDate(date: string): Promise<CompletionRow[]> {
+  const sql = getSql();
+  const rows = await sql`
+    select child_id, task_id, done
+    from completions
+    where entry_date = ${date}
+  `;
+  return rows as unknown as CompletionRow[];
+}
+
+export async function setCompletion(
   childId: string,
   taskId: string,
   date: string,
-  value: number
+  done: boolean
 ): Promise<void> {
   const sql = getSql();
   await sql`
-    insert into entries (child_id, task_id, entry_date, value)
-    values (${childId}, ${taskId}, ${date}, ${value})
+    insert into completions (child_id, task_id, entry_date, done)
+    values (${childId}, ${taskId}, ${date}, ${done})
     on conflict (child_id, task_id, entry_date)
-    do update set value = excluded.value, updated_at = now()
+    do update set done = excluded.done, updated_at = now()
   `;
-}
-
-export async function resetDay(childId: string, date: string): Promise<void> {
-  const sql = getSql();
-  await sql`delete from entries where child_id = ${childId} and entry_date = ${date}`;
 }

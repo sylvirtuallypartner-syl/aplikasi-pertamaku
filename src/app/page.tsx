@@ -1,102 +1,178 @@
 "use client";
 
-import { useState } from "react";
-import Stars from "@/components/Stars";
-import ChildDashboard from "@/components/ChildDashboard";
-import MonthlyRecap from "@/components/MonthlyRecap";
-import PinModal from "@/components/PinModal";
-import { useParentAuth } from "@/hooks/useParentAuth";
-import { CHILD_ORDER, CHILDREN, ChildKey } from "@/lib/tasks";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CHILD_ORDER,
+  CHILDREN,
+  ChildId,
+  isChildId,
+  tasksForToday,
+} from "@/lib/tasks";
+import { fullDateLabel, isWeekendDate, todayStr } from "@/lib/date";
 
-type Mode = "anak" | "ortu";
+const WHO_KEY = "kids-tracker-who";
+const POLL_MS = 4000;
 
 export default function Home() {
-  const [activeChild, setActiveChild] = useState<ChildKey>("k11");
-  const [mode, setMode] = useState<Mode>("anak");
-  const [showPin, setShowPin] = useState(false);
-  const { authenticated, checking, login, logout } = useParentAuth();
+  const [who, setWho] = useState<ChildId | null>(null);
+  const [whoLoaded, setWhoLoaded] = useState(false);
+  const [date, setDate] = useState(todayStr());
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef<Set<string>>(new Set());
 
-  const child = CHILDREN[activeChild];
+  useEffect(() => {
+    // localStorage isn't available during SSR, so identity must be read
+    // client-side after mount rather than in a lazy useState initializer.
+    const saved = localStorage.getItem(WHO_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isChildId(saved)) setWho(saved);
+    setWhoLoaded(true);
+  }, []);
 
-  function chooseMode(next: Mode) {
-    if (next === "ortu" && !authenticated) {
-      setShowPin(true);
-      return;
+  function chooseWho(id: ChildId) {
+    localStorage.setItem(WHO_KEY, id);
+    setWho(id);
+  }
+
+  function changeWho() {
+    localStorage.removeItem(WHO_KEY);
+    setWho(null);
+  }
+
+  const refresh = useCallback(async (silent: boolean) => {
+    const today = todayStr();
+    setDate(today);
+    try {
+      const res = await fetch(`/api/status?date=${today}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memuat data");
+      setDone((prev) => {
+        const next = { ...data.done };
+        for (const key of pending.current) {
+          if (key in prev) next[key] = prev[key];
+        }
+        return next;
+      });
+      setError(null);
+    } catch (err) {
+      if (!silent) setError(err instanceof Error ? err.message : "Gagal memuat data");
+    } finally {
+      setLoaded(true);
     }
-    setMode(next);
-  }
+  }, []);
 
-  async function handlePinSubmit(pin: string) {
-    const err = await login(pin);
-    if (!err) {
-      setShowPin(false);
-      setMode("ortu");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refresh(false);
+    const id = setInterval(() => refresh(true), POLL_MS);
+    const onFocus = () => refresh(true);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refresh]);
+
+  async function toggle(childId: ChildId, taskId: string) {
+    const key = `${childId}:${taskId}`;
+    const nextValue = !done[key];
+    pending.current.add(key);
+    setDone((prev) => ({ ...prev, [key]: nextValue }));
+    try {
+      const res = await fetch("/api/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId, taskId, date, done: nextValue }),
+      });
+      if (!res.ok) throw new Error("Gagal menyimpan");
+      setError(null);
+    } catch {
+      setDone((prev) => ({ ...prev, [key]: !nextValue }));
+      setError("Gagal menyimpan, coba tap lagi.");
+    } finally {
+      pending.current.delete(key);
     }
-    return err;
   }
 
-  function handleLogout() {
-    logout();
-    setMode("anak");
+  if (!whoLoaded) return null;
+
+  if (!who) {
+    return (
+      <div className="wrap">
+        <h1>Kids Tracker</h1>
+        <p className="subtitle">Kamu siapa?</p>
+        <div className="who-list">
+          {CHILD_ORDER.map((id) => {
+            const c = CHILDREN[id];
+            return (
+              <button
+                key={id}
+                className="who-btn"
+                style={{ background: c.color }}
+                onClick={() => chooseWho(id)}
+              >
+                <span className="who-emoji">{c.emoji}</span>
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
+
+  const weekend = isWeekendDate(date);
+  const me = CHILDREN[who];
 
   return (
     <div className="wrap">
-      <Stars />
-      <h1>🚀 Misi Harian Kemandirian</h1>
-      <div className="subtitle">
-        Klik tugas yang sudah selesai — poin, reward, dan progres minggu ini otomatis
-        terhitung &amp; tersimpan untuk semua device.
-      </div>
-
-      <div className="mode-switch">
-        <button
-          className={`mode-btn ${mode === "anak" ? "active" : ""}`}
-          onClick={() => chooseMode("anak")}
-        >
-          🧒 Mode Anak
+      <h1>Kids Tracker</h1>
+      <div className="date-label">{fullDateLabel(date)}</div>
+      <div className="who-bar">
+        <span>
+          Kamu: <b>{me.emoji} {me.name}</b>
+        </span>
+        <button className="change-btn" onClick={changeWho}>
+          Ganti
         </button>
-        <button
-          className={`mode-btn ${mode === "ortu" ? "active" : ""}`}
-          onClick={() => chooseMode("ortu")}
-          disabled={checking}
-        >
-          🔒 Mode Ortu
-        </button>
-        {mode === "ortu" && authenticated && (
-          <button className="mode-btn" onClick={handleLogout}>
-            Keluar
-          </button>
-        )}
       </div>
 
-      {showPin && (
-        <PinModal onSubmit={handlePinSubmit} onCancel={() => setShowPin(false)} />
-      )}
+      {error && <div className="error-banner">{error}</div>}
+      {!loaded && <div className="loading">Memuat...</div>}
 
-      <div className="tabs">
-        {CHILD_ORDER.map((key) => {
-          const c = CHILDREN[key];
-          return (
-            <button
-              key={key}
-              className={`tab-btn ${activeChild === key ? "active" : ""}`}
-              onClick={() => setActiveChild(key)}
-            >
-              <span className="emoji">{c.emoji}</span> {c.name.toUpperCase()} ({c.age} Tahun)
-            </button>
-          );
-        })}
-      </div>
-
-      <ChildDashboard key={child.id} child={child} />
-
-      {mode === "ortu" && authenticated && <MonthlyRecap key={`recap-${child.id}`} child={child} />}
-
-      <div className="footer-note">
-        Data tersimpan di database (Postgres/Neon), sinkron otomatis di semua device —
-        buka link ini kapan saja, progres tidak hilang.
-      </div>
+      {CHILD_ORDER.map((id) => {
+        const child = CHILDREN[id];
+        const tasks = tasksForToday(child, weekend);
+        const isMe = id === who;
+        return (
+          <section key={id} className="child-card" style={{ borderColor: child.color }}>
+            <h2 style={{ color: child.color }}>
+              {child.emoji} {child.name}
+            </h2>
+            <ul className="task-list">
+              {tasks.map((task) => {
+                const key = `${id}:${task.id}`;
+                const isDone = !!done[key];
+                return (
+                  <li key={task.id}>
+                    <button
+                      className={`task-row ${isDone ? "done" : ""} ${isMe ? "" : "locked"}`}
+                      onClick={() => isMe && toggle(id, task.id)}
+                      disabled={!isMe}
+                      aria-pressed={isDone}
+                    >
+                      <span className="check">{isDone ? "✓" : ""}</span>
+                      <span className="label">{task.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
