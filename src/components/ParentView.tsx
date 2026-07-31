@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CHILD_ORDER, CHILDREN, ChildId } from "@/lib/children";
 import { TaskDef, tasksForToday } from "@/lib/tasks";
 import { fullDateLabel, isWeekendDate, todayStr } from "@/lib/date";
+import { EMPTY_ENTRY, StatusEntry, statusIcon, statusRowClass } from "@/lib/status";
 import PinPad from "./PinPad";
 
 const STATUS_POLL_MS = 4000;
@@ -42,7 +43,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
   const [date, setDate] = useState(todayStr());
   const [tasks, setTasks] = useState<RawTask[]>([]);
   const [rates, setRates] = useState<RewardRate[]>([]);
-  const [done, setDone] = useState<Record<string, boolean>>({});
+  const [entries, setEntries] = useState<Record<string, StatusEntry>>({});
   const [error, setError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -60,7 +61,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       if (!statusRes.ok) throw new Error(statusData.error);
       setTasks(tasksData.tasks);
       setRates(ratesData.rates);
-      setDone(statusData.done);
+      setEntries(statusData.entries);
       setDate(todayStr());
       setError(null);
     } catch (err) {
@@ -140,6 +141,24 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     await loadAll();
   }
 
+  async function approve(childId: ChildId, taskId: number, approved: boolean) {
+    const key = `${childId}:${taskId}`;
+    const prev = entries[key] ?? EMPTY_ENTRY;
+    setEntries((p) => ({ ...p, [key]: { ...prev, approved } }));
+    const res = await fetch("/api/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId, taskId, date, approved }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setEntries((p) => ({ ...p, [key]: prev }));
+      setError(data.error || "Gagal menyimpan persetujuan");
+      return;
+    }
+    await loadAll();
+  }
+
   async function saveRate(childId: ChildId, amountPerTask: number) {
     const res = await fetch("/api/reward-rates", {
       method: "PATCH",
@@ -187,10 +206,11 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       {CHILD_ORDER.map((childId) => {
         const child = CHILDREN[childId];
         const today = tasksForToday(allTaskDefs, childId, weekend);
-        const doneCount = today.filter((t) => done[`${childId}:${t.id}`]).length;
+        const doneCount = today.filter((t) => entries[`${childId}:${t.id}`]?.done).length;
+        const approvedCount = today.filter((t) => entries[`${childId}:${t.id}`]?.approved).length;
         const percent = today.length ? Math.round((doneCount / today.length) * 100) : 0;
         const rate = rates.find((r) => r.child_id === childId)?.amount_per_task ?? 0;
-        const todayReward = doneCount * rate;
+        const todayReward = approvedCount * rate;
         const childTasks = tasks.filter((t) => t.child_id === childId);
 
         return (
@@ -207,27 +227,35 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
                 />
               </div>
               <span className="progress-text">
-                {doneCount}/{today.length} ({percent}%)
+                {doneCount}/{today.length} dilaporkan ({percent}%)
               </span>
+            </div>
+            <div className="progress-row">
+              <span className="progress-text">{approvedCount}/{today.length} disetujui Ibu</span>
             </div>
 
             <div className="reward-box" style={{ borderColor: child.color }}>
-              🎁 Reward hari ini: <b>{fmtRp(todayReward)}</b> ({doneCount} tugas &times; {fmtRp(rate)})
+              🎁 Reward hari ini: <b>{fmtRp(todayReward)}</b> ({approvedCount} tugas disetujui &times; {fmtRp(rate)})
             </div>
 
             <ul className="task-list readonly">
               {today.map((task) => {
-                const isDone = !!done[`${childId}:${task.id}`];
+                const entry = entries[`${childId}:${task.id}`] ?? EMPTY_ENTRY;
                 return (
                   <li key={task.id}>
-                    <div className={`task-row static ${isDone ? "done" : ""}`}>
-                      <span className="check">{isDone ? "✓" : ""}</span>
+                    <button
+                      className={`task-row static ${statusRowClass(entry)} ${entry.done ? "" : "locked"}`}
+                      disabled={!entry.done}
+                      onClick={() => entry.done && approve(childId, task.id, !entry.approved)}
+                    >
+                      <span className="check">{statusIcon(entry)}</span>
                       <span className="label">{task.label}</span>
-                    </div>
+                    </button>
                   </li>
                 );
               })}
             </ul>
+            <p className="subtitle small">Tap tugas yang sudah dilaporkan (✅) untuk mengesahkan/batalkan (✅✅).</p>
 
             <TaskManager
               childId={childId}

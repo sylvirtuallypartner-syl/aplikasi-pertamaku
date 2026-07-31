@@ -25,18 +25,22 @@ export interface CompletionRow {
   child_id: string;
   task_id: number;
   done: boolean;
+  approved: boolean;
 }
 
 export async function getCompletionsForDate(date: string): Promise<CompletionRow[]> {
   const sql = getSql();
   const rows = await sql`
-    select child_id, task_id, done
+    select child_id, task_id, done, approved
     from completions
     where entry_date = ${date}
   `;
   return rows as unknown as CompletionRow[];
 }
 
+// Dipanggil oleh anak (lapor selesai/belum). Mematikan "done" otomatis
+// membatalkan approval Ibu yang sudah ada — supaya tidak ada approval basi
+// menempel di laporan yang sudah berubah.
 export async function setCompletion(
   childId: string,
   taskId: number,
@@ -45,11 +49,34 @@ export async function setCompletion(
 ): Promise<void> {
   const sql = getSql();
   await sql`
-    insert into completions (child_id, task_id, entry_date, done)
-    values (${childId}, ${taskId}, ${date}, ${done})
+    insert into completions (child_id, task_id, entry_date, done, approved)
+    values (${childId}, ${taskId}, ${date}, ${done}, false)
     on conflict (child_id, task_id, entry_date)
-    do update set done = excluded.done, updated_at = now()
+    do update set
+      done = excluded.done,
+      approved = case when excluded.done then completions.approved else false end,
+      updated_at = now()
   `;
+}
+
+// Dipanggil oleh Ibu (tampilan Orang Tua, PIN). Cuma boleh mengesahkan tugas
+// yang sudah dilaporkan anak (done = true) — kalau belum, tidak ada baris
+// yang cocok dan fungsi ini melempar error.
+export async function setApproval(
+  childId: string,
+  taskId: number,
+  date: string,
+  approved: boolean
+): Promise<void> {
+  const sql = getSql();
+  const rows = await sql`
+    update completions set approved = ${approved}, updated_at = now()
+    where child_id = ${childId} and task_id = ${taskId} and entry_date = ${date} and done = true
+    returning child_id
+  `;
+  if (rows.length === 0) {
+    throw new Error("Tugas belum dilaporkan anak, belum bisa disetujui.");
+  }
 }
 
 // ---------- tasks ----------

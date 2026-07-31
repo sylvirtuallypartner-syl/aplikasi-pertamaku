@@ -1,17 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CHILDREN, ChildId } from "@/lib/children";
+import { CHILD_ORDER, CHILDREN, ChildId } from "@/lib/children";
 import { TaskDef, tasksForToday } from "@/lib/tasks";
 import { fullDateLabel, isWeekendDate, todayStr } from "@/lib/date";
+import { EMPTY_ENTRY, StatusEntry, statusIcon, statusRowClass } from "@/lib/status";
 
 const STATUS_POLL_MS = 4000;
 
 export default function KidView({ childId }: { childId: ChildId }) {
-  const child = CHILDREN[childId];
   const [date, setDate] = useState(todayStr());
   const [tasks, setTasks] = useState<TaskDef[]>([]);
-  const [done, setDone] = useState<Record<string, boolean>>({});
+  const [entries, setEntries] = useState<Record<string, StatusEntry>>({});
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef<Set<string>>(new Set());
@@ -43,8 +43,8 @@ export default function KidView({ childId }: { childId: ChildId }) {
       const res = await fetch(`/api/status?date=${today}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat data");
-      setDone((prev) => {
-        const next = { ...data.done };
+      setEntries((prev) => {
+        const next = { ...data.entries };
         for (const key of pending.current) {
           if (key in prev) next[key] = prev[key];
         }
@@ -76,21 +76,22 @@ export default function KidView({ childId }: { childId: ChildId }) {
     };
   }, [loadTasks, loadStatus]);
 
-  async function toggle(taskId: number) {
-    const key = `${childId}:${taskId}`;
-    const nextValue = !done[key];
+  async function toggle(id: ChildId, taskId: number) {
+    const key = `${id}:${taskId}`;
+    const current = entries[key] ?? EMPTY_ENTRY;
+    const nextValue = !current.done;
     pending.current.add(key);
-    setDone((prev) => ({ ...prev, [key]: nextValue }));
+    setEntries((prev) => ({ ...prev, [key]: { done: nextValue, approved: nextValue ? current.approved : false } }));
     try {
       const res = await fetch("/api/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ childId, taskId, date, done: nextValue }),
+        body: JSON.stringify({ childId: id, taskId, date, done: nextValue }),
       });
       if (!res.ok) throw new Error("Gagal menyimpan");
       setError(null);
     } catch {
-      setDone((prev) => ({ ...prev, [key]: !nextValue }));
+      setEntries((prev) => ({ ...prev, [key]: current }));
       setError("Gagal menyimpan, coba tap lagi.");
     } finally {
       pending.current.delete(key);
@@ -98,7 +99,6 @@ export default function KidView({ childId }: { childId: ChildId }) {
   }
 
   const weekend = isWeekendDate(date);
-  const myTasks = tasksForToday(tasks, childId, weekend);
 
   return (
     <div>
@@ -106,29 +106,36 @@ export default function KidView({ childId }: { childId: ChildId }) {
       {error && <div className="error-banner">{error}</div>}
       {!loaded && <div className="loading">Memuat...</div>}
 
-      <section className="child-card" style={{ borderColor: child.color }}>
-        <h2 style={{ color: child.color }}>
-          {child.emoji} {child.name}
-        </h2>
-        <ul className="task-list">
-          {myTasks.map((task) => {
-            const key = `${childId}:${task.id}`;
-            const isDone = !!done[key];
-            return (
-              <li key={task.id}>
-                <button
-                  className={`task-row ${isDone ? "done" : ""}`}
-                  onClick={() => toggle(task.id)}
-                  aria-pressed={isDone}
-                >
-                  <span className="check">{isDone ? "✓" : ""}</span>
-                  <span className="label">{task.label}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      {CHILD_ORDER.map((id) => {
+        const child = CHILDREN[id];
+        const isMe = id === childId;
+        const todayTasks = tasksForToday(tasks, id, weekend);
+        return (
+          <section key={id} className="child-card" style={{ borderColor: child.color }}>
+            <h2 style={{ color: child.color }}>
+              {child.emoji} {child.name}
+            </h2>
+            <ul className="task-list">
+              {todayTasks.map((task) => {
+                const entry = entries[`${id}:${task.id}`] ?? EMPTY_ENTRY;
+                return (
+                  <li key={task.id}>
+                    <button
+                      className={`task-row ${statusRowClass(entry)} ${isMe ? "" : "locked"}`}
+                      onClick={() => isMe && toggle(id, task.id)}
+                      disabled={!isMe}
+                      aria-pressed={entry.done}
+                    >
+                      <span className="check">{statusIcon(entry)}</span>
+                      <span className="label">{task.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

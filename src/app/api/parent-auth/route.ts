@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
   let ok: boolean;
   try {
     ok = verifyPin(pin);
-  } catch {
+  } catch (err) {
     return NextResponse.json(
-      { error: "PARENT_PIN belum diset di environment variable Vercel." },
+      { error: err instanceof Error ? err.message : "PARENT_PIN belum diset dengan benar." },
       { status: 500 }
     );
   }

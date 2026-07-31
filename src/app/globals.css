@@ -237,36 +237,36 @@ h1 {
 
 .task-row .check {
   flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  border: 2px solid #b9c6dc;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 900;
-  color: #fff;
+  width: 34px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .task-row .label {
   flex: 1;
 }
 
-.task-row.done {
+/* dilaporkan anak (✅), belum disahkan Ibu */
+.task-row.reported {
   background: #eafff1;
   border-color: #7fe0a4;
 }
 
-.task-row.done .check {
-  background: #2fbf6b;
-  border-color: #2fbf6b;
-}
-
-.task-row.done .label {
+.task-row.reported .label {
   text-decoration: line-through;
   color: #5c7a68;
+}
+
+/* disahkan Ibu (✅✅) — final, dihitung untuk reward */
+.task-row.approved {
+  background: #fff8e1;
+  border-color: #f2c94c;
+}
+
+.task-row.approved .label {
+  text-decoration: line-through;
+  color: #8a6d1f;
 }
 
 .task-row.static {
@@ -274,6 +274,15 @@ h1 {
 }
 
 .task-row.static:active {
+  transform: none;
+}
+
+.task-row.locked {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.task-row.locked:active {
   transform: none;
 }
 

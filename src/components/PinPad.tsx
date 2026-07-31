@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+const PIN_LENGTH = 6;
+
 export default function PinPad({
   onSubmit,
 }: {
@@ -24,17 +26,19 @@ export default function PinPad({
 
   return (
     <form className="pin-form" onSubmit={handleSubmit}>
-      <p className="subtitle">Masukkan PIN Orang Tua</p>
+      <p className="subtitle">Masukkan PIN Orang Tua (6 digit)</p>
       <input
         className="pin-input"
         type="password"
         inputMode="numeric"
+        pattern="\d*"
+        maxLength={PIN_LENGTH}
         autoFocus
         value={pin}
-        onChange={(e) => setPin(e.target.value)}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, PIN_LENGTH))}
       />
       {error && <div className="error-banner">{error}</div>}
-      <button className="pin-submit" type="submit" disabled={busy || !pin}>
+      <button className="pin-submit" type="submit" disabled={busy || pin.length !== PIN_LENGTH}>
         Masuk
       </button>
     </form>
