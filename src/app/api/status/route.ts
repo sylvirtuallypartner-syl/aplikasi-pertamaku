@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCompletionsForDate, setCompletion } from "@/lib/db";
 import { isValidDateStr } from "@/lib/date";
-import { isChildId, CHILDREN } from "@/lib/tasks";
+import { isChildId } from "@/lib/children";
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date");
@@ -33,9 +33,8 @@ export async function POST(req: NextRequest) {
   if (!isValidDateStr(date)) {
     return NextResponse.json({ error: "Tanggal tidak valid" }, { status: 400 });
   }
-  const taskExists = CHILDREN[childId].tasks.some((t) => t.id === taskId);
-  if (!taskExists) {
-    return NextResponse.json({ error: "Tugas tidak ditemukan" }, { status: 400 });
+  if (!Number.isInteger(taskId)) {
+    return NextResponse.json({ error: "Tugas tidak valid" }, { status: 400 });
   }
   if (typeof done !== "boolean") {
     return NextResponse.json({ error: "Status tidak valid" }, { status: 400 });

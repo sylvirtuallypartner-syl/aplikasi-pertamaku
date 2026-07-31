@@ -198,20 +198,209 @@ h1 {
   color: #5c7a68;
 }
 
-.task-row.locked {
-  opacity: 0.55;
+.task-row.static {
   cursor: default;
 }
 
-.task-row.locked:active {
+.task-row.static:active {
   transform: none;
+}
+
+.who-btn.parent {
+  background: #4a5568;
+}
+
+/* ---------- Progress & reward (tampilan Orang Tua) ---------- */
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.progress-track {
+  flex: 1;
+  height: 14px;
+  background: #eef2f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4b5b73;
+  white-space: nowrap;
+}
+
+.reward-box {
+  border: 2px dashed;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  background: #fffdf5;
+}
+
+/* ---------- Pengelolaan tugas & reward ---------- */
+
+.manager {
+  margin-top: 14px;
+  border-top: 1px solid #eef2f9;
+  padding-top: 10px;
+}
+
+.manager-toggle {
+  border: none;
+  background: none;
+  color: #2f5fb3;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.manager-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.manager-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f2f5fa;
+}
+
+.manager-label {
+  flex: 1;
+  min-width: 140px;
+}
+
+.badge {
+  display: inline-block;
+  background: #e4ecfb;
+  color: #2f5fb3;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.manager-btn {
+  border: 1px solid #dbe4f2;
+  background: #fff;
+  color: #4b5b73;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.manager-btn.primary {
+  background: #2f7bff;
+  border-color: #2f7bff;
+  color: #fff;
+}
+
+.manager-btn.danger {
+  background: #fff0f0;
+  border-color: #f3c6c6;
+  color: #a12727;
+}
+
+.manager-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.manager-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.manager-input {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid #dbe4f2;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.manager-input.percent {
+  flex: none;
+  width: 64px;
+}
+
+.manager-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #4b5b73;
+}
+
+/* ---------- PIN Orang Tua ---------- */
+
+.pin-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.pin-input {
+  width: 160px;
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 6px;
+  padding: 12px;
+  border: 2px solid #dbe4f2;
+  border-radius: 14px;
+}
+
+.pin-submit {
+  border: none;
+  background: #2f7bff;
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 12px 32px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pin-submit:disabled {
+  opacity: 0.5;
 }
 
 @media (min-width: 480px) {
   .who-list {
     flex-direction: row;
+    flex-wrap: wrap;
   }
   .who-btn {
     flex: 1;
+    min-width: 140px;
   }
 }
