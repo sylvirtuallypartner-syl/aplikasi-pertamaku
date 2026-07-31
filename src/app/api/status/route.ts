@@ -10,11 +10,11 @@ export async function GET(req: NextRequest) {
   }
   try {
     const rows = await getCompletionsForDate(date);
-    const done: Record<string, boolean> = {};
+    const entries: Record<string, { done: boolean; approved: boolean }> = {};
     for (const row of rows) {
-      done[`${row.child_id}:${row.task_id}`] = row.done;
+      entries[`${row.child_id}:${row.task_id}`] = { done: row.done, approved: row.approved };
     }
-    return NextResponse.json({ done });
+    return NextResponse.json({ entries });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Gagal memuat data" },

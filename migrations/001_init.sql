@@ -15,11 +15,15 @@ create table if not exists tasks (
   created_at timestamptz not null default now()
 );
 
+-- "done" = dilaporkan anak (centang pertama). "approved" = disahkan Ibu
+-- lewat tampilan Orang Tua (centang kedua) — reward hanya dihitung dari
+-- tugas yang approved.
 create table if not exists completions (
   child_id text not null,
   task_id integer not null references tasks(id) on delete cascade,
   entry_date date not null,
   done boolean not null default false,
+  approved boolean not null default false,
   updated_at timestamptz not null default now(),
   primary key (child_id, task_id, entry_date)
 );
