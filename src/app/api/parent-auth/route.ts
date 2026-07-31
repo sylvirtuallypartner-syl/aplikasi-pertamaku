@@ -1,47 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  PARENT_COOKIE,
-  PARENT_SESSION_MAX_AGE,
-  createSessionToken,
-  verifyPin,
-  verifySessionToken,
-} from "@/lib/auth";
-
-export const dynamic = "force-dynamic";
+import { PARENT_COOKIE, createSessionToken, isParentRequest, verifyPin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get(PARENT_COOKIE)?.value;
-  return NextResponse.json({ authenticated: verifySessionToken(token) });
+  return NextResponse.json({ authenticated: isParentRequest(req) });
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.PARENT_PIN) {
+  const body = await req.json().catch(() => null);
+  const pin = body?.pin;
+  if (typeof pin !== "string") {
+    return NextResponse.json({ error: "PIN tidak valid" }, { status: 400 });
+  }
+
+  let ok: boolean;
+  try {
+    ok = verifyPin(pin);
+  } catch {
     return NextResponse.json(
-      { ok: false, error: "PARENT_PIN belum diset di environment variables." },
+      { error: "PARENT_PIN belum diset di environment variable Vercel." },
       { status: 500 }
     );
   }
-  const body = await req.json().catch(() => null);
-  const pin = typeof body?.pin === "string" ? body.pin : "";
 
-  if (!verifyPin(pin)) {
-    return NextResponse.json({ ok: false, error: "PIN salah" }, { status: 401 });
+  if (!ok) {
+    return NextResponse.json({ error: "PIN salah" }, { status: 401 });
   }
 
-  const token = createSessionToken();
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(PARENT_COOKIE, token, {
+  res.cookies.set(PARENT_COOKIE, createSessionToken(), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 12,
     path: "/",
-    maxAge: PARENT_SESSION_MAX_AGE,
   });
   return res;
 }
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(PARENT_COOKIE, "", { path: "/", maxAge: 0 });
+  res.cookies.delete(PARENT_COOKIE);
   return res;
 }

@@ -1,102 +1,80 @@
 "use client";
 
-import { useState } from "react";
-import Stars from "@/components/Stars";
-import ChildDashboard from "@/components/ChildDashboard";
-import MonthlyRecap from "@/components/MonthlyRecap";
-import PinModal from "@/components/PinModal";
-import { useParentAuth } from "@/hooks/useParentAuth";
-import { CHILD_ORDER, CHILDREN, ChildKey } from "@/lib/tasks";
+import { useEffect, useState } from "react";
+import { CHILD_ORDER, CHILDREN, ChildId, isChildId } from "@/lib/children";
+import KidView from "@/components/KidView";
+import ParentView from "@/components/ParentView";
 
-type Mode = "anak" | "ortu";
+type Who = ChildId | "parent";
+
+const WHO_KEY = "kids-tracker-who";
+
+function isWho(v: string | null): v is Who {
+  return isChildId(v) || v === "parent";
+}
 
 export default function Home() {
-  const [activeChild, setActiveChild] = useState<ChildKey>("k11");
-  const [mode, setMode] = useState<Mode>("anak");
-  const [showPin, setShowPin] = useState(false);
-  const { authenticated, checking, login, logout } = useParentAuth();
+  const [who, setWho] = useState<Who | null>(null);
+  const [whoLoaded, setWhoLoaded] = useState(false);
 
-  const child = CHILDREN[activeChild];
+  useEffect(() => {
+    const saved = localStorage.getItem(WHO_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isWho(saved)) setWho(saved);
+    setWhoLoaded(true);
+  }, []);
 
-  function chooseMode(next: Mode) {
-    if (next === "ortu" && !authenticated) {
-      setShowPin(true);
-      return;
-    }
-    setMode(next);
+  function choose(next: Who) {
+    localStorage.setItem(WHO_KEY, next);
+    setWho(next);
   }
 
-  async function handlePinSubmit(pin: string) {
-    const err = await login(pin);
-    if (!err) {
-      setShowPin(false);
-      setMode("ortu");
-    }
-    return err;
+  function changeWho() {
+    localStorage.removeItem(WHO_KEY);
+    setWho(null);
   }
 
-  function handleLogout() {
-    logout();
-    setMode("anak");
+  if (!whoLoaded) return null;
+
+  if (!who) {
+    return (
+      <div className="wrap">
+        <h1>Kids Tracker</h1>
+        <p className="subtitle">Kamu siapa?</p>
+        <div className="who-list">
+          {CHILD_ORDER.map((id) => {
+            const c = CHILDREN[id];
+            return (
+              <button key={id} className="who-btn" style={{ background: c.color }} onClick={() => choose(id)}>
+                <span className="who-emoji">{c.emoji}</span>
+                {c.name}
+              </button>
+            );
+          })}
+          <button className="who-btn parent" onClick={() => choose("parent")}>
+            <span className="who-emoji">🔑</span>
+            Orang Tua
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="wrap">
-      <Stars />
-      <h1>🚀 Misi Harian Kemandirian</h1>
-      <div className="subtitle">
-        Klik tugas yang sudah selesai — poin, reward, dan progres minggu ini otomatis
-        terhitung &amp; tersimpan untuk semua device.
-      </div>
-
-      <div className="mode-switch">
-        <button
-          className={`mode-btn ${mode === "anak" ? "active" : ""}`}
-          onClick={() => chooseMode("anak")}
-        >
-          🧒 Mode Anak
-        </button>
-        <button
-          className={`mode-btn ${mode === "ortu" ? "active" : ""}`}
-          onClick={() => chooseMode("ortu")}
-          disabled={checking}
-        >
-          🔒 Mode Ortu
-        </button>
-        {mode === "ortu" && authenticated && (
-          <button className="mode-btn" onClick={handleLogout}>
-            Keluar
+      <h1>Kids Tracker</h1>
+      {who !== "parent" && (
+        <div className="who-bar">
+          <span>
+            Kamu: <b>{CHILDREN[who].emoji} {CHILDREN[who].name}</b>
+          </span>
+          <button className="change-btn" onClick={changeWho}>
+            Ganti
           </button>
-        )}
-      </div>
-
-      {showPin && (
-        <PinModal onSubmit={handlePinSubmit} onCancel={() => setShowPin(false)} />
+        </div>
       )}
 
-      <div className="tabs">
-        {CHILD_ORDER.map((key) => {
-          const c = CHILDREN[key];
-          return (
-            <button
-              key={key}
-              className={`tab-btn ${activeChild === key ? "active" : ""}`}
-              onClick={() => setActiveChild(key)}
-            >
-              <span className="emoji">{c.emoji}</span> {c.name.toUpperCase()} ({c.age} Tahun)
-            </button>
-          );
-        })}
-      </div>
-
-      <ChildDashboard key={child.id} child={child} />
-
-      {mode === "ortu" && authenticated && <MonthlyRecap key={`recap-${child.id}`} child={child} />}
-
-      <div className="footer-note">
-        Data tersimpan di database (Postgres/Neon), sinkron otomatis di semua device —
-        buka link ini kapan saja, progres tidak hilang.
-      </div>
+      {who === "parent" ? <ParentView onExit={changeWho} /> : <KidView childId={who} />}
     </div>
   );
 }

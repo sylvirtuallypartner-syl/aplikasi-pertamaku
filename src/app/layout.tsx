@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Misi Harian - Dashboard Disiplin",
-  description: "Dashboard misi harian kemandirian anak, sinkron antar device.",
+  title: "Kids Tracker",
+  description: "Daftar tugas harian Sean & Gavril, sinkron antar HP.",
 };
 
 export default function RootLayout({

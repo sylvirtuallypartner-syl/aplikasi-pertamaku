@@ -27,37 +27,25 @@ export function isWeekendDate(dateStr: string): boolean {
   return day === 0 || day === 6;
 }
 
-export function addDays(dateStr: string, n: number): string {
-  const d = parseDateStr(dateStr);
-  d.setDate(d.getDate() + n);
-  return toDateStr(d);
+const DAY_NAMES = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+];
+
+export function dayNameLabel(dateStr: string): string {
+  return DAY_NAMES[parseDateStr(dateStr).getDay()];
 }
 
-export function mondayOf(dateStr: string): string {
-  const d = parseDateStr(dateStr);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return toDateStr(d);
-}
-
-export function weekRange(dateStr: string): { start: string; end: string } {
-  const start = mondayOf(dateStr);
-  return { start, end: addDays(start, 6) };
-}
-
-export function monthRange(year: number, month: number): { start: string; end: string } {
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0);
-  return { start: toDateStr(start), end: toDateStr(end) };
-}
-
-export const WEEKDAY_LABELS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-
-export function monthLabel(year: number, month: number): string {
+export function fullDateLabel(dateStr: string): string {
   const names = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ];
-  return `${names[month - 1]} ${year}`;
+  const d = parseDateStr(dateStr);
+  return `${dayNameLabel(dateStr)}, ${d.getDate()} ${names[d.getMonth()]} ${d.getFullYear()}`;
 }

@@ -1,43 +1,43 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import crypto from "crypto";
+import { NextRequest } from "next/server";
 
-export const PARENT_COOKIE = "misi_ortu_session";
-const SESSION_HOURS = 12;
+export const PARENT_COOKIE = "kt_parent";
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 jam
 
-function safeEqualStrings(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
-
-export function verifyPin(candidate: string): boolean {
+function getPin(): string {
   const pin = process.env.PARENT_PIN;
-  if (!pin || !candidate) return false;
-  return safeEqualStrings(candidate, pin);
+  if (!pin) {
+    throw new Error("PARENT_PIN belum diset di environment variable.");
+  }
+  return pin;
 }
 
-function sign(payload: string, secret: string): string {
-  return createHmac("sha256", secret).update(payload).digest("hex");
+function sign(payload: string): string {
+  return crypto.createHmac("sha256", getPin()).update(payload).digest("hex");
+}
+
+export function verifyPin(input: string): boolean {
+  const pin = getPin();
+  const a = Buffer.from(input);
+  const b = Buffer.from(pin);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function createSessionToken(): string {
-  const secret = process.env.PARENT_PIN;
-  if (!secret) throw new Error("PARENT_PIN belum diset di environment variables.");
-  const expires = Date.now() + SESSION_HOURS * 3600 * 1000;
-  const payload = String(expires);
-  return `${payload}.${sign(payload, secret)}`;
+  const expires = String(Date.now() + SESSION_TTL_MS);
+  return `${expires}.${sign(expires)}`;
 }
 
 export function verifySessionToken(token: string | undefined | null): boolean {
-  const secret = process.env.PARENT_PIN;
-  if (!secret || !token) return false;
-  const [payload, sig] = token.split(".");
-  if (!payload || !sig) return false;
-  const expected = sign(payload, secret);
-  if (!safeEqualStrings(sig, expected)) return false;
-  const expires = Number(payload);
-  if (!Number.isFinite(expires) || Date.now() > expires) return false;
-  return true;
+  if (!token) return false;
+  const [expires, sig] = token.split(".");
+  if (!expires || !sig) return false;
+  if (sign(expires) !== sig) return false;
+  const expiresAt = Number(expires);
+  return Number.isFinite(expiresAt) && Date.now() < expiresAt;
 }
 
-export const PARENT_SESSION_MAX_AGE = SESSION_HOURS * 3600;
+export function isParentRequest(req: NextRequest): boolean {
+  return verifySessionToken(req.cookies.get(PARENT_COOKIE)?.value);
+}

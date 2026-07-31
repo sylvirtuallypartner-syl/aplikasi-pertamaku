@@ -1,61 +1,101 @@
-# Misi Harian Kemandirian
+# Kids Tracker
 
-Dashboard misi harian untuk membantu anak membangun kebiasaan baik & mandiri —
-Sean (11 tahun) dan Gavril (6 tahun) — dengan progres yang **tersimpan di
-database (bukan localStorage)**, jadi bisa diakses dari HP orang tua maupun
-anak lewat satu link Vercel yang sama, dan datanya tidak hilang atau terkunci
-di satu device.
+Satu layar sederhana untuk daftar tugas harian Sean (11 tahun) dan Gavril
+(6 tahun), plus tampilan Orang Tua (PIN) untuk memantau progres dan reward.
 
-Tema visual (dark navy, gold/cinnabar, bintang berkelip, ring progress, bar
-mingguan) dipertahankan persis dari versi HTML/localStorage sebelumnya.
+- Tiap anak cuma melihat & mencentang daftar tugasnya sendiri (tidak ada
+  daftar anak lain di layarnya).
+- Tugas untuk hari kerja dan akhir pekan bisa berbeda, muncul otomatis sesuai
+  hari ini.
+- Update tersinkron near-real-time antar HP (polling tiap 4 detik).
+- Tampilan **Orang Tua** (dikunci PIN) bisa melihat progres kedua anak +
+  reward hari ini, serta mengedit daftar tugas dan tarif reward. Reward
+  dihitung **per tugas selesai** (mis. Sean Rp1.500/tugas, Gavril
+  Rp1.000/tugas) — beda tarif tiap anak, bisa diubah kapan saja. Reward
+  **sengaja disembunyikan dari tampilan anak** — anak hanya melihat checklist
+  biasa. Reward mingguan belum ditentukan, jadi belum ada di app ini.
 
-## Yang baru dibanding versi lama
+Tidak ada notifikasi, tidak ada dark mode, tidak ada pengaturan lain di luar
+itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 
-1. **Data di Postgres (Vercel Postgres / Neon)**, bukan localStorage — buka
-   dari device manapun, data yang sama muncul di semua tempat (polling setiap
-   ~15 detik + refresh saat tab difokuskan, jadi "hampir real-time").
-2. **Mode akses**: **Anak** (default, langsung centang tugas tanpa login) vs
-   **Ortu** (dikunci PIN sederhana, untuk lihat rekap bulanan & export CSV).
-   PIN diverifikasi di server (route handler), tidak pernah dikirim ke
-   frontend dalam bentuk plain.
-3. **Rekap bulanan** (selain harian & mingguan yang sudah ada), plus **export
-   CSV** per bulan di mode Ortu untuk arsip pribadi.
+## Cara pakai
+
+### Sebagai anak
+
+1. Buka link Vercel dari HP.
+2. Pilih nama kamu (Sean atau Gavril) — sekali saja, tersimpan otomatis di HP
+   itu. Kalau HP dipakai bergantian, tap **Ganti** di pojok atas untuk pilih
+   nama lain.
+3. Tap tugas yang sudah selesai — hanya tugas milikmu yang muncul.
+4. Tugas yang muncul otomatis menyesuaikan hari ini — tugas khusus hari
+   sekolah tidak muncul di weekend, dan sebaliknya.
+5. Kalau dua HP dibuka bersamaan, centang di satu HP akan muncul di HP lain
+   dalam beberapa detik tanpa perlu refresh manual.
+
+### Sebagai orang tua
+
+1. Di layar pilih nama, tap **Orang Tua**, masukkan PIN.
+2. Lihat progres hari ini (jumlah tugas selesai + persentase) dan reward hari
+   ini untuk tiap anak (jumlah tugas selesai × tarif per tugas).
+3. **Kelola daftar tugas**: tambah, edit teks, ubah weekday/weekend saja, atau
+   hapus tugas — per anak.
+4. **Ubah tarif reward per tugas**: ganti nominal Rupiah per tugas selesai,
+   beda-beda per anak.
+5. Tap **Keluar** untuk logout dari mode Orang Tua.
+
+Reward mingguan belum ditentukan — belum ada di app ini, bisa ditambah nanti
+kalau sudah diputuskan.
 
 ## Struktur teknis
 
-- **Next.js (App Router, TypeScript)** — di-deploy ke Vercel lewat integrasi
-  GitHub yang sudah aktif (push ke branch ini otomatis ter-deploy).
-- **Database**: Vercel Postgres (Neon), diakses lewat `@neondatabase/serverless`
-  dari Route Handlers di `src/app/api/*` (bukan langsung dari browser, supaya
-  connection string tidak pernah terekspos ke client).
-- **Task list & logic reward/bonus**: `src/lib/tasks.ts` — daftar tugas Sean &
-  Gavril, tier reward harian, bonus mingguan, persis sama dengan versi lama.
-- **Agregasi rekap** (harian/mingguan/bulanan, streak): `src/lib/recap.ts`.
+- **Next.js (App Router, TypeScript)** — deploy ke Vercel lewat integrasi
+  GitHub (push ke branch ini otomatis ter-deploy).
+- **Daftar anak** (nama, umur, emoji, warna) statis di kode:
+  `src/lib/children.ts`.
+- **Daftar tugas & tarif reward tersimpan di database**, bisa diedit lewat
+  tampilan Orang Tua — tidak perlu edit kode untuk mengubahnya.
+- **Status harian** (`completions`) juga di database, per anak per tugas per
+  tanggal.
+- **Tarif reward** (`reward_rates`, satu baris per anak — jumlah Rupiah per
+  tugas selesai) hanya bisa diakses lewat endpoint yang mengecek sesi Orang
+  Tua (cookie PIN) — tidak pernah dikirim ke tampilan anak.
+- **Sinkron antar HP**: polling ke server tiap 4 detik + saat layar dibuka
+  lagi (mendekati real-time tanpa perlu WebSocket).
 
-## Setup — sekali saja
+## Setup — sekali saja di dashboard Vercel
 
-### 1. Sambungkan Vercel Postgres (Neon)
+### 1. Deploy project ke Vercel
 
-Di dashboard Vercel, buka project ini → tab **Storage** → **Create Database**
-→ pilih **Postgres (Neon)** → sambungkan ke project. Vercel otomatis mengisi
-environment variable `DATABASE_URL` untuk Production, Preview, dan
-Development.
+Kalau belum pernah di-import: di dashboard Vercel, klik **Add New → Project**,
+pilih repo `aplikasi-pertamaku`, klik **Deploy**. Vercel otomatis mendeteksi
+Next.js, tidak perlu ubah setting apa pun.
 
-### 2. Jalankan migrasi schema
+### 2. Sambungkan database (Vercel Postgres via Neon)
 
-Buka **Neon SQL editor** (lewat tab Storage project → klik database → "Open
-in Neon" / "Query") dan jalankan isi file [`migrations/001_init.sql`](migrations/001_init.sql).
-File ini membuat tabel `children`, `tasks`, `entries`, lengkap dengan seed
-data 22 tugas Sean dan 17 tugas Gavril.
+1. Buka project ini di dashboard Vercel → tab **Storage**.
+2. Klik **Create Database** → pilih **Postgres** (disediakan oleh Neon) →
+   **Connect** ke project ini.
+3. Vercel otomatis mengisi environment variable `DATABASE_URL` (Production,
+   Preview, Development) — kamu tidak perlu isi manual.
 
-Alternatif lewat terminal (butuh `psql`, connection string dari Vercel
-Storage tab):
+### 3. Jalankan migrasi tabel (sekali saja)
+
+1. Di tab **Storage**, klik database yang baru dibuat → buka **Query** /
+   **Open in Neon** (SQL editor bawaan Neon).
+2. Salin isi file [`migrations/001_init.sql`](migrations/001_init.sql), tempel
+   di SQL editor, lalu jalankan (Run). Ini membuat tabel `tasks`,
+   `completions`, `reward_rates`, lengkap dengan tugas & tarif reward awal
+   (Sean Rp1.500/tugas, Gavril Rp1.000/tugas) yang bisa kamu ubah lagi lewat
+   tampilan Orang Tua.
+
+Alternatif lewat terminal (kalau punya `psql`):
 
 ```bash
+vercel env pull .env.local   # ambil DATABASE_URL dari Vercel
 psql "$DATABASE_URL" -f migrations/001_init.sql
 ```
 
-### 3. Set PIN mode Ortu
+### 4. Set PIN Orang Tua
 
 Di Vercel → Project Settings → Environment Variables, tambahkan:
 
@@ -66,7 +106,11 @@ PARENT_PIN=1234
 (bebas berapa digit/angka, ganti sesuai keinginan). Redeploy sekali setelah
 menambahkan variable ini kalau deployment sebelumnya sudah berjalan duluan.
 
-### 4. Development lokal (opsional)
+### 5. Selesai
+
+Buka URL deployment dari HP.
+
+## Development lokal (opsional)
 
 ```bash
 vercel env pull .env.local   # menarik DATABASE_URL & PARENT_PIN dari Vercel
@@ -76,20 +120,13 @@ npm run dev
 
 Buka http://localhost:3000.
 
-## Alur pakai sehari-hari
-
-- **Anak**: buka link Vercel, pilih tab nama anak, centang tugas yang sudah
-  selesai. Poin, ring capaian, reward harian, dan bar mingguan langsung
-  ter-update.
-- **Ortu**: klik "🔒 Mode Ortu", masukkan PIN, lihat rekap bulanan & histori,
-  atau export CSV untuk arsip.
-- Buka link yang sama dari HP lain (anak atau orang tua) — progres yang sudah
-  dicentang akan muncul juga di sana (tunggu beberapa detik / refresh halaman).
-
 ## Catatan keamanan
 
-PIN Ortu adalah pengaman sederhana di level UI (sesuai kebutuhan aplikasi
-keluarga, bukan sistem multi-tenant), diverifikasi di server via
-`PARENT_PIN` dan disimpan sebagai cookie httpOnly bertanda tangan HMAC
-selama 12 jam. Endpoint export CSV memvalidasi cookie ini di server sebelum
-mengirim data.
+- "Kamu siapa" (Sean/Gavril) cuma disimpan di local storage HP masing-masing,
+  tanpa password — disengaja (aplikasi keluarga, bukan sistem multi-tenant),
+  cukup untuk mencegah salah tap secara tidak sengaja.
+- Mode Orang Tua dikunci PIN sederhana (`PARENT_PIN`), diverifikasi di server
+  dan disimpan sebagai cookie httpOnly bertanda tangan selama 12 jam. Endpoint
+  yang mengubah tugas/tarif reward, dan endpoint yang membaca tarif reward,
+  semuanya menolak permintaan tanpa sesi Orang Tua yang valid — jadi anak
+  tidak bisa mengakses data reward lewat DevTools sekalipun.
