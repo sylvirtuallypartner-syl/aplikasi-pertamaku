@@ -3,9 +3,9 @@
 Satu layar sederhana untuk daftar tugas harian Sean (11 tahun) dan Gavril
 (6 tahun), plus tampilan Orang Tua (PIN) untuk memantau progres dan reward.
 
-- Tiap anak melihat daftar tugas **kedua anak** di satu layar, tapi cuma bisa
-  menandai (tap) barisnya **sendiri** — baris anak lain tetap terlihat tapi
-  abu-abu/tidak bisa disentuh dari HP-nya.
+- Tiap anak cuma melihat & mencentang daftar tugasnya sendiri (tidak ada
+  daftar anak lain di layarnya) — mencegah Sean dan Gavril saling
+  mencentang tugas satu sama lain.
 - Tugas untuk hari kerja dan akhir pekan bisa berbeda, muncul otomatis sesuai
   hari ini.
 - Update tersinkron near-real-time antar HP (polling tiap 4 detik).
@@ -30,9 +30,8 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 2. Pilih nama kamu (Sean atau Gavril) — sekali saja, tersimpan otomatis di HP
    itu. Kalau HP dipakai bergantian, tap **Ganti** di pojok atas untuk pilih
    nama lain.
-3. Tap tugas yang sudah selesai — status berubah dari ⬜ jadi ✅. Tugas milik
-   anak satunya kelihatan juga di layar yang sama, tapi abu-abu dan tidak
-   bisa ditap dari HP-mu.
+3. Tap tugas yang sudah selesai — status berubah dari ⬜ jadi ✅. Hanya tugas
+   milikmu yang muncul di layar.
 4. Setelah Ibu mengesahkan lewat tampilan Orang Tua, status berubah jadi ✅✅
    — itu tandanya sudah benar-benar dihitung untuk reward.
 5. Tugas yang muncul otomatis menyesuaikan hari ini — tugas khusus hari
@@ -148,10 +147,9 @@ Buka http://localhost:3000.
 
 - "Kamu siapa" (Sean/Gavril) cuma disimpan di local storage HP masing-masing,
   tanpa password — disengaja (aplikasi keluarga, bukan sistem multi-tenant).
-  Server juga menolak tap di baris yang bukan milik "kamu siapa" itu lewat
-  tampilan (baris terkunci, tidak ada tombol untuk ditekan), jadi Sean tidak
-  bisa mencentang tugas Gavril begitu juga sebaliknya, selama masing-masing
-  memilih namanya sendiri di HP-nya.
+  Layar anak cuma menampilkan tugas milik identitas yang sedang dipilih di
+  HP itu, jadi Sean tidak akan melihat/mencentang tugas Gavril begitu juga
+  sebaliknya, selama masing-masing memilih namanya sendiri.
 - Mode Orang Tua dikunci PIN 6 digit (`PARENT_PIN`), diverifikasi di server
   dan disimpan sebagai cookie httpOnly bertanda tangan selama 12 jam. Endpoint
   yang mengubah tugas/tarif reward/persetujuan, dan endpoint yang membaca
