@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CHILD_ORDER, CHILDREN, ChildId } from "@/lib/children";
+import { CHILDREN, ChildId } from "@/lib/children";
 import { TaskDef, tasksForToday } from "@/lib/tasks";
 import { fullDateLabel, isWeekendDate, todayStr } from "@/lib/date";
 import { EMPTY_ENTRY, StatusEntry, statusIcon, statusRowClass } from "@/lib/status";
@@ -76,8 +76,8 @@ export default function KidView({ childId }: { childId: ChildId }) {
     };
   }, [loadTasks, loadStatus]);
 
-  async function toggle(id: ChildId, taskId: number) {
-    const key = `${id}:${taskId}`;
+  async function toggle(taskId: number) {
+    const key = `${childId}:${taskId}`;
     const current = entries[key] ?? EMPTY_ENTRY;
     const nextValue = !current.done;
     pending.current.add(key);
@@ -86,7 +86,7 @@ export default function KidView({ childId }: { childId: ChildId }) {
       const res = await fetch("/api/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ childId: id, taskId, date, done: nextValue }),
+        body: JSON.stringify({ childId, taskId, date, done: nextValue }),
       });
       if (!res.ok) throw new Error("Gagal menyimpan");
       setError(null);
@@ -99,6 +99,8 @@ export default function KidView({ childId }: { childId: ChildId }) {
   }
 
   const weekend = isWeekendDate(date);
+  const child = CHILDREN[childId];
+  const myTasks = tasksForToday(tasks, childId, weekend);
 
   return (
     <div>
@@ -106,36 +108,28 @@ export default function KidView({ childId }: { childId: ChildId }) {
       {error && <div className="error-banner">{error}</div>}
       {!loaded && <div className="loading">Memuat...</div>}
 
-      {CHILD_ORDER.map((id) => {
-        const child = CHILDREN[id];
-        const isMe = id === childId;
-        const todayTasks = tasksForToday(tasks, id, weekend);
-        return (
-          <section key={id} className="child-card" style={{ borderColor: child.color }}>
-            <h2 style={{ color: child.color }}>
-              {child.emoji} {child.name}
-            </h2>
-            <ul className="task-list">
-              {todayTasks.map((task) => {
-                const entry = entries[`${id}:${task.id}`] ?? EMPTY_ENTRY;
-                return (
-                  <li key={task.id}>
-                    <button
-                      className={`task-row ${statusRowClass(entry)} ${isMe ? "" : "locked"}`}
-                      onClick={() => isMe && toggle(id, task.id)}
-                      disabled={!isMe}
-                      aria-pressed={entry.done}
-                    >
-                      <span className="check">{statusIcon(entry)}</span>
-                      <span className="label">{task.label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
+      <section className="child-card" style={{ borderColor: child.color }}>
+        <h2 style={{ color: child.color }}>
+          {child.emoji} {child.name}
+        </h2>
+        <ul className="task-list">
+          {myTasks.map((task) => {
+            const entry = entries[`${childId}:${task.id}`] ?? EMPTY_ENTRY;
+            return (
+              <li key={task.id}>
+                <button
+                  className={`task-row ${statusRowClass(entry)}`}
+                  onClick={() => toggle(task.id)}
+                  aria-pressed={entry.done}
+                >
+                  <span className="check">{statusIcon(entry)}</span>
+                  <span className="label">{task.label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }
