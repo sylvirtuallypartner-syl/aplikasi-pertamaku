@@ -22,6 +22,61 @@ body {
   padding: 20px 16px 48px;
 }
 
+/* ---------- Layar pilih nama ---------- */
+
+.picker-screen {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: linear-gradient(160deg, #e6f2ff 0%, #eafff2 55%, #fff7e6 100%);
+}
+
+.picker-blob {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(55px);
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.blob-a {
+  width: 300px;
+  height: 300px;
+  top: -70px;
+  left: -70px;
+  background: #2f7bff;
+}
+
+.blob-b {
+  width: 340px;
+  height: 340px;
+  bottom: -90px;
+  right: -90px;
+  background: #22b573;
+}
+
+.blob-c {
+  width: 220px;
+  height: 220px;
+  bottom: 8%;
+  left: -50px;
+  background: #ffb84d;
+}
+
+.picker-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
 h1 {
   font-size: 28px;
   font-weight: 800;
@@ -89,25 +144,35 @@ h1 {
 
 .who-btn {
   border: none;
-  border-radius: 20px;
-  padding: 28px 20px;
+  border-radius: 24px;
+  padding: 22px 24px;
   font-size: 26px;
   font-weight: 800;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(20, 50, 100, 0.18);
+  box-shadow: 0 10px 22px rgba(20, 50, 100, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .who-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+  box-shadow: 0 4px 10px rgba(20, 50, 100, 0.18);
 }
 
 .who-emoji {
-  font-size: 34px;
+  font-size: 30px;
+  width: 54px;
+  height: 54px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
 }
 
 .error-banner {

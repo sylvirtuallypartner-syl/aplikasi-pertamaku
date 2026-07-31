@@ -38,23 +38,28 @@ export default function Home() {
 
   if (!who) {
     return (
-      <div className="wrap">
-        <h1>Kids Tracker</h1>
-        <p className="subtitle">Kamu siapa?</p>
-        <div className="who-list">
-          {CHILD_ORDER.map((id) => {
-            const c = CHILDREN[id];
-            return (
-              <button key={id} className="who-btn" style={{ background: c.color }} onClick={() => choose(id)}>
-                <span className="who-emoji">{c.emoji}</span>
-                {c.name}
-              </button>
-            );
-          })}
-          <button className="who-btn parent" onClick={() => choose("parent")}>
-            <span className="who-emoji">🔑</span>
-            Orang Tua
-          </button>
+      <div className="picker-screen">
+        <div className="picker-blob blob-a" />
+        <div className="picker-blob blob-b" />
+        <div className="picker-blob blob-c" />
+        <div className="picker-content">
+          <h1>Kids Tracker</h1>
+          <p className="subtitle">Kamu siapa?</p>
+          <div className="who-list">
+            {CHILD_ORDER.map((id) => {
+              const c = CHILDREN[id];
+              return (
+                <button key={id} className="who-btn" style={{ background: c.color }} onClick={() => choose(id)}>
+                  <span className="who-emoji">{c.emoji}</span>
+                  {c.name}
+                </button>
+              );
+            })}
+            <button className="who-btn parent" onClick={() => choose("parent")}>
+              <span className="who-emoji">🔑</span>
+              Orang Tua
+            </button>
+          </div>
         </div>
       </div>
     );
