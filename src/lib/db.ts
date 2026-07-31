@@ -109,53 +109,26 @@ export async function deleteTask(id: number): Promise<void> {
   await sql`delete from tasks where id = ${id}`;
 }
 
-// ---------- reward tiers (parent-only) ----------
+// ---------- reward rates (parent-only) ----------
+// Reward harian = jumlah tugas selesai x tarif per tugas. Reward mingguan
+// belum ditentukan, jadi belum ada di sini.
 
-export interface RewardTierRow {
-  id: number;
+export interface RewardRateRow {
   child_id: ChildId;
-  min_percent: number;
-  label: string;
+  amount_per_task: number;
 }
 
-export async function getAllRewardTiers(): Promise<RewardTierRow[]> {
+export async function getAllRewardRates(): Promise<RewardRateRow[]> {
   const sql = getSql();
-  const rows = await sql`
-    select id, child_id, min_percent, label
-    from reward_tiers
-    order by child_id, min_percent desc
-  `;
-  return rows as unknown as RewardTierRow[];
+  const rows = await sql`select child_id, amount_per_task from reward_rates`;
+  return rows as unknown as RewardRateRow[];
 }
 
-export async function createRewardTier(
-  childId: ChildId,
-  minPercent: number,
-  label: string
-): Promise<RewardTierRow> {
-  const sql = getSql();
-  const rows = await sql`
-    insert into reward_tiers (child_id, min_percent, label)
-    values (${childId}, ${minPercent}, ${label})
-    returning id, child_id, min_percent, label
-  `;
-  return rows[0] as unknown as RewardTierRow;
-}
-
-export async function updateRewardTier(
-  id: number,
-  fields: { minPercent?: number; label?: string }
-): Promise<void> {
+export async function setRewardRate(childId: ChildId, amountPerTask: number): Promise<void> {
   const sql = getSql();
   await sql`
-    update reward_tiers set
-      min_percent = coalesce(${fields.minPercent ?? null}, min_percent),
-      label = coalesce(${fields.label ?? null}, label)
-    where id = ${id}
+    insert into reward_rates (child_id, amount_per_task)
+    values (${childId}, ${amountPerTask})
+    on conflict (child_id) do update set amount_per_task = excluded.amount_per_task
   `;
-}
-
-export async function deleteRewardTier(id: number): Promise<void> {
-  const sql = getSql();
-  await sql`delete from reward_tiers where id = ${id}`;
 }

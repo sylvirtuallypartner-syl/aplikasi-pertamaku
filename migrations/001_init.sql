@@ -26,17 +26,15 @@ create table if not exists completions (
 
 create index if not exists completions_date_idx on completions (entry_date);
 
--- Reward/konsekuensi per anak berdasarkan persentase tugas selesai hari itu.
--- Hanya tampil di tampilan Orang Tua (PIN), tidak pernah dikirim ke tampilan anak.
-create table if not exists reward_tiers (
-  id integer generated always as identity primary key,
-  child_id text not null check (child_id in ('sean', 'gavril')),
-  min_percent int not null check (min_percent between 0 and 100),
-  label text not null,
-  created_at timestamptz not null default now()
-);
+-- Reward harian = jumlah tugas selesai x tarif per tugas (Rupiah), beda tiap
+-- anak. Hanya tampil di tampilan Orang Tua (PIN), tidak pernah dikirim ke
+-- tampilan anak. Reward mingguan belum ditentukan — belum ada di schema ini.
+drop table if exists reward_tiers;
 
-create index if not exists reward_tiers_child_idx on reward_tiers (child_id, min_percent desc);
+create table if not exists reward_rates (
+  child_id text primary key check (child_id in ('sean', 'gavril')),
+  amount_per_task integer not null default 0
+);
 
 -- ============== SEED: tugas awal (bisa diedit lewat tampilan Orang Tua) ==============
 insert into tasks (child_id, label, weekday_only, weekend_only, sort_order)
@@ -67,16 +65,8 @@ select * from (values
 ) as t(child_id, label, weekday_only, weekend_only, sort_order)
 where not exists (select 1 from tasks);
 
--- ============== SEED: reward/konsekuensi awal (bisa diedit lewat tampilan Orang Tua) ==============
-insert into reward_tiers (child_id, min_percent, label)
-select * from (values
-  ('sean', 100, 'Semua selesai — Rp25.000 / pilih jajan favorit'),
-  ('sean', 80, 'Hampir semua selesai — Rp15.000'),
-  ('sean', 50, 'Separuh lebih — Rp5.000'),
-  ('sean', 0, 'Belum sampai separuh — evaluasi bareng malam ini'),
-  ('gavril', 100, 'Semua selesai — Rp10.000 / pilih jajan favorit'),
-  ('gavril', 80, 'Hampir semua selesai — Rp7.000'),
-  ('gavril', 50, 'Separuh lebih — Rp3.000'),
-  ('gavril', 0, 'Belum sampai separuh — evaluasi bareng malam ini')
-) as t(child_id, min_percent, label)
-where not exists (select 1 from reward_tiers);
+-- ============== SEED: tarif reward awal (bisa diedit lewat tampilan Orang Tua) ==============
+insert into reward_rates (child_id, amount_per_task) values
+  ('sean', 1500),
+  ('gavril', 1000)
+on conflict (child_id) do nothing;

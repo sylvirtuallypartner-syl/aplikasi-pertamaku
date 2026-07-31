@@ -38,6 +38,12 @@ h1 {
   margin: 0 0 16px;
 }
 
+.subtitle.small {
+  font-size: 13px;
+  color: #9aa8bd;
+  margin: 8px 0 0;
+}
+
 .date-label {
   text-align: center;
   font-size: 15px;
@@ -346,9 +352,9 @@ h1 {
   font-size: 14px;
 }
 
-.manager-input.percent {
+.manager-input.amount {
   flex: none;
-  width: 64px;
+  width: 90px;
 }
 
 .manager-check {

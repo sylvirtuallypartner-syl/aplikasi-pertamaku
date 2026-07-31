@@ -8,7 +8,6 @@ import PinPad from "./PinPad";
 
 const STATUS_POLL_MS = 4000;
 const MAX_TASK_LABEL = 50;
-const MAX_TIER_LABEL = 120;
 
 interface RawTask {
   id: number;
@@ -18,11 +17,9 @@ interface RawTask {
   weekend_only: boolean;
 }
 
-interface RewardTier {
-  id: number;
+interface RewardRate {
   child_id: ChildId;
-  min_percent: number;
-  label: string;
+  amount_per_task: number;
 }
 
 function toTaskDef(t: RawTask): TaskDef {
@@ -35,30 +32,34 @@ function toTaskDef(t: RawTask): TaskDef {
   };
 }
 
+function fmtRp(n: number): string {
+  return "Rp" + n.toLocaleString("id-ID");
+}
+
 export default function ParentView({ onExit }: { onExit: () => void }) {
   const [authChecked, setAuthChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [date, setDate] = useState(todayStr());
   const [tasks, setTasks] = useState<RawTask[]>([]);
-  const [tiers, setTiers] = useState<RewardTier[]>([]);
+  const [rates, setRates] = useState<RewardRate[]>([]);
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
-      const [tasksRes, tiersRes, statusRes] = await Promise.all([
+      const [tasksRes, ratesRes, statusRes] = await Promise.all([
         fetch("/api/tasks", { cache: "no-store" }),
-        fetch("/api/reward-tiers", { cache: "no-store" }),
+        fetch("/api/reward-rates", { cache: "no-store" }),
         fetch(`/api/status?date=${todayStr()}`, { cache: "no-store" }),
       ]);
       const tasksData = await tasksRes.json();
-      const tiersData = await tiersRes.json();
+      const ratesData = await ratesRes.json();
       const statusData = await statusRes.json();
       if (!tasksRes.ok) throw new Error(tasksData.error);
-      if (!tiersRes.ok) throw new Error(tiersData.error);
+      if (!ratesRes.ok) throw new Error(ratesData.error);
       if (!statusRes.ok) throw new Error(statusData.error);
       setTasks(tasksData.tasks);
-      setTiers(tiersData.tiers);
+      setRates(ratesData.rates);
       setDone(statusData.done);
       setDate(todayStr());
       setError(null);
@@ -139,39 +140,15 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     await loadAll();
   }
 
-  async function addTier(childId: ChildId, minPercent: number, label: string) {
-    const res = await fetch("/api/reward-tiers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ childId, minPercent, label }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Gagal menambah reward");
-      return;
-    }
-    await loadAll();
-  }
-
-  async function saveTier(id: number, minPercent: number, label: string) {
-    const res = await fetch(`/api/reward-tiers/${id}`, {
+  async function saveRate(childId: ChildId, amountPerTask: number) {
+    const res = await fetch("/api/reward-rates", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ minPercent, label }),
+      body: JSON.stringify({ childId, amountPerTask }),
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error || "Gagal mengubah reward");
-      return;
-    }
-    await loadAll();
-  }
-
-  async function removeTier(id: number) {
-    const res = await fetch(`/api/reward-tiers/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Gagal menghapus reward");
+      setError(data.error || "Gagal menyimpan reward");
       return;
     }
     await loadAll();
@@ -212,8 +189,8 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
         const today = tasksForToday(allTaskDefs, childId, weekend);
         const doneCount = today.filter((t) => done[`${childId}:${t.id}`]).length;
         const percent = today.length ? Math.round((doneCount / today.length) * 100) : 0;
-        const childTiers = tiers.filter((tr) => tr.child_id === childId);
-        const reached = childTiers.find((tr) => tr.min_percent <= percent);
+        const rate = rates.find((r) => r.child_id === childId)?.amount_per_task ?? 0;
+        const todayReward = doneCount * rate;
         const childTasks = tasks.filter((t) => t.child_id === childId);
 
         return (
@@ -234,11 +211,9 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
               </span>
             </div>
 
-            {reached && (
-              <div className="reward-box" style={{ borderColor: child.color }}>
-                🎁 {reached.label}
-              </div>
-            )}
+            <div className="reward-box" style={{ borderColor: child.color }}>
+              🎁 Reward hari ini: <b>{fmtRp(todayReward)}</b> ({doneCount} tugas &times; {fmtRp(rate)})
+            </div>
 
             <ul className="task-list readonly">
               {today.map((task) => {
@@ -262,16 +237,12 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
               onDelete={removeTask}
             />
 
-            <TierManager
-              childId={childId}
-              tiers={childTiers}
-              onAdd={addTier}
-              onSave={saveTier}
-              onDelete={removeTier}
-            />
+            <RateManager childId={childId} amountPerTask={rate} onSave={saveRate} />
           </section>
         );
       })}
+
+      <p className="subtitle small">Reward mingguan belum diatur.</p>
     </div>
   );
 }
@@ -408,129 +379,61 @@ function TaskEditRow({
   );
 }
 
-function TierManager({
+function RateManager({
   childId,
-  tiers,
-  onAdd,
+  amountPerTask,
   onSave,
-  onDelete,
 }: {
   childId: ChildId;
-  tiers: RewardTier[];
-  onAdd: (childId: ChildId, minPercent: number, label: string) => Promise<void>;
-  onSave: (id: number, minPercent: number, label: string) => Promise<void>;
-  onDelete: (id: number) => Promise<void>;
+  amountPerTask: number;
+  onSave: (childId: ChildId, amountPerTask: number) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [newPercent, setNewPercent] = useState(100);
-  const [newLabel, setNewLabel] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(amountPerTask);
 
   return (
     <div className="manager">
-      <button className="manager-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? "Tutup" : "Kelola reward / konsekuensi"}
-      </button>
-      {open && (
-        <div className="manager-body">
-          {tiers.map((tr) =>
-            editingId === tr.id ? (
-              <TierEditRow
-                key={tr.id}
-                tier={tr}
-                onCancel={() => setEditingId(null)}
-                onSave={async (minPercent, label) => {
-                  await onSave(tr.id, minPercent, label);
-                  setEditingId(null);
-                }}
-              />
-            ) : (
-              <div key={tr.id} className="manager-row">
-                <span className="manager-label">
-                  <span className="badge">&ge;{tr.min_percent}%</span> {tr.label}
-                </span>
-                <button className="manager-btn" onClick={() => setEditingId(tr.id)}>
-                  Edit
-                </button>
-                <button className="manager-btn danger" onClick={() => onDelete(tr.id)}>
-                  Hapus
-                </button>
-              </div>
-            )
-          )}
-
-          <div className="manager-add">
-            <input
-              className="manager-input percent"
-              type="number"
-              min={0}
-              max={100}
-              value={newPercent}
-              onChange={(e) => setNewPercent(Number(e.target.value))}
-            />
-            <input
-              className="manager-input"
-              placeholder="Reward / konsekuensi"
-              maxLength={MAX_TIER_LABEL}
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-            />
-            <button
-              className="manager-btn primary"
-              disabled={!newLabel.trim()}
-              onClick={async () => {
-                await onAdd(childId, newPercent, newLabel.trim());
-                setNewLabel("");
-                setNewPercent(100);
-              }}
-            >
-              Tambah
-            </button>
-          </div>
+      {editing ? (
+        <div className="manager-add">
+          <span className="manager-label">Rp</span>
+          <input
+            className="manager-input amount"
+            type="number"
+            min={0}
+            value={value}
+            onChange={(e) => setValue(Number(e.target.value))}
+          />
+          <span className="manager-label">/ tugas / hari</span>
+          <button
+            className="manager-btn primary"
+            onClick={async () => {
+              await onSave(childId, value);
+              setEditing(false);
+            }}
+          >
+            Simpan
+          </button>
+          <button
+            className="manager-btn"
+            onClick={() => {
+              setValue(amountPerTask);
+              setEditing(false);
+            }}
+          >
+            Batal
+          </button>
         </div>
+      ) : (
+        <button
+          className="manager-toggle"
+          onClick={() => {
+            setValue(amountPerTask);
+            setEditing(true);
+          }}
+        >
+          Ubah tarif reward per tugas
+        </button>
       )}
-    </div>
-  );
-}
-
-function TierEditRow({
-  tier,
-  onSave,
-  onCancel,
-}: {
-  tier: RewardTier;
-  onSave: (minPercent: number, label: string) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [minPercent, setMinPercent] = useState(tier.min_percent);
-  const [label, setLabel] = useState(tier.label);
-
-  return (
-    <div className="manager-add">
-      <input
-        className="manager-input percent"
-        type="number"
-        min={0}
-        max={100}
-        value={minPercent}
-        onChange={(e) => setMinPercent(Number(e.target.value))}
-      />
-      <input
-        className="manager-input"
-        maxLength={MAX_TIER_LABEL}
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-      />
-      <button
-        className="manager-btn primary"
-        disabled={!label.trim()}
-        onClick={() => onSave(minPercent, label.trim())}
-      >
-        Simpan
-      </button>
-      <button className="manager-btn" onClick={onCancel}>
-        Batal
-      </button>
     </div>
   );
 }
