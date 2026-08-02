@@ -16,8 +16,16 @@ Satu layar sederhana untuk daftar tugas harian Sean (11 tahun) dan Gavril
   tarif reward. Reward dihitung **per tugas yang sudah disahkan Ibu** (mis.
   Sean Rp1.500/tugas, Gavril Rp1.000/tugas) — tugas yang baru dilaporkan
   tapi belum disahkan belum dihitung reward. Reward **sengaja disembunyikan
-  dari tampilan anak** — anak hanya melihat status ⬜/✅/✅✅ biasa. Reward
-  mingguan belum ditentukan, jadi belum ada di app ini.
+  dari tampilan anak** — anak hanya melihat status ⬜/✅/✅✅ biasa.
+- Ada dropdown tanggal (14 hari terakhir) di layar anak maupun Orang Tua,
+  jadi kalau ada yang lupa centang, bisa dibuka lagi hari sebelumnya dan
+  dibetulkan — tidak harus hari ini terus.
+- Tampilan Orang Tua juga punya **rekap mingguan (Senin–Minggu)**: total
+  reward uang minggu itu, dan persentase tugas yang disetujui untuk jadi
+  bahan menentukan reward non-uang. Bisa navigasi ke minggu-minggu
+  sebelumnya juga.
+- Urutan tugas di **Kelola daftar tugas** bisa diubah pakai tombol ▲/▼, jadi
+  tugas baru tidak harus nyangkut di paling bawah.
 
 Tidak ada notifikasi, tidak ada dark mode, tidak ada pengaturan lain di luar
 itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
@@ -36,7 +44,9 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
    — itu tandanya sudah benar-benar dihitung untuk reward.
 5. Tugas yang muncul otomatis menyesuaikan hari ini — tugas khusus hari
    sekolah tidak muncul di weekend, dan sebaliknya.
-6. Kalau dua HP dibuka bersamaan, centang di satu HP akan muncul di HP lain
+6. Lupa centang kemarin? Buka dropdown tanggal di atas, pilih harinya, tap
+   tugas yang ketinggalan, lalu tap **Kembali ke hari ini** untuk balik lagi.
+7. Kalau dua HP dibuka bersamaan, centang di satu HP akan muncul di HP lain
    dalam beberapa detik tanpa perlu refresh manual.
 
 ### Sebagai orang tua
@@ -48,14 +58,24 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 3. **Sahkan tugas**: tap baris tugas yang berstatus ✅ (sudah dilaporkan)
    untuk mengesahkannya jadi ✅✅ — tap lagi untuk membatalkan kalau salah
    pencet. Tugas yang masih ⬜ (belum dilaporkan anak) tidak bisa ditap dulu.
-4. **Kelola daftar tugas**: tambah, edit teks, ubah weekday/weekend saja, atau
-   hapus tugas — per anak.
-5. **Ubah tarif reward per tugas**: ganti nominal Rupiah per tugas yang
+4. **Ganti tanggal**: pakai dropdown di atas untuk lihat/sahkan tugas hari
+   sebelumnya (14 hari terakhir) — berguna kalau ada yang lupa disahkan atau
+   dicentang.
+5. **Rekap mingguan**: di bawah daftar tugas tiap anak, ada ringkasan
+   Senin–Minggu — total reward uang minggu itu, persentase tugas yang
+   disetujui (buat bahan reward non-uang), dan rincian 7 hari. Tombol ‹ ›
+   untuk pindah ke minggu lain.
+6. **Kelola daftar tugas**: tambah, edit teks, ubah weekday/weekend saja,
+   hapus tugas, atau ubah urutannya pakai tombol ▲/▼ — per anak.
+7. **Ubah tarif reward per tugas**: ganti nominal Rupiah per tugas yang
    disetujui, beda-beda per anak.
-6. Tap **Keluar** untuk logout dari mode Orang Tua.
+8. Tap **Keluar** untuk logout dari mode Orang Tua.
 
-Reward mingguan belum ditentukan — belum ada di app ini, bisa ditambah nanti
-kalau sudah diputuskan.
+Reward mingguan dalam bentuk **uang** otomatis dihitung dari rekap di atas
+(jumlah tugas disetujui minggu itu × tarif). Reward mingguan dalam bentuk
+**non-uang** (misal jalan-jalan, waktu main tambahan) masih diputuskan manual
+oleh orang tua berdasarkan persentase di rekap — app ini cuma menyediakan
+angkanya, keputusan rewardnya sendiri belum diotomatisasi.
 
 ## Struktur teknis
 
@@ -77,6 +97,27 @@ kalau sudah diputuskan.
   Orang Tua (cookie PIN) — tidak pernah dikirim ke tampilan anak.
 - **Sinkron antar HP**: polling ke server tiap 4 detik + saat layar dibuka
   lagi (mendekati real-time tanpa perlu WebSocket).
+- **Rekap mingguan** dihitung dari `GET /api/status/range` (parent-only),
+  mengambil status 7 hari sekaligus lalu diagregasi di klien memakai daftar
+  tugas & tarif reward **saat ini** (bukan snapshot historis — kalau tugas
+  atau tarif diubah, rekap minggu lalu ikut memakai angka yang baru).
+- **Urutan tugas** (`tasks.sort_order`) bisa diubah lewat `PATCH
+  /api/tasks/:id` — tombol ▲/▼ di Kelola daftar tugas menukar `sort_order`
+  dua tugas bertetangga.
+
+### Kenapa tanggal "hari ini" bisa salah?
+
+Aplikasi ini tidak punya jam server sendiri untuk tanggal — setiap HP
+menentukan "hari ini" dari jam & zona waktu perangkatnya masing-masing (data
+per tugas per hari sendiri-sendiri di database, jadi hari baru **selalu**
+mulai kosong — sudah diverifikasi langsung, tidak ada tugas yang
+"ke-bawa" dari hari sebelumnya). Kalau suatu HP jam/zona waktunya salah
+setel, tugas yang dicentang malam hari bisa "salah tanggal" (misal tercatat
+untuk besok), sehingga besoknya kelihatan seperti "sudah tercentang
+semua" padahal itu sebenarnya centangan tadi malam yang salah tanggal.
+Kalau ini terjadi: cek pengaturan jam & zona waktu (harus WIB/Asia-Jakarta,
+idealnya "atur otomatis") di HP yang dipakai, dan pakai dropdown tanggal
+untuk mengecek tugas itu sebenarnya tersimpan di tanggal berapa.
 
 ## Setup — sekali saja di dashboard Vercel
 

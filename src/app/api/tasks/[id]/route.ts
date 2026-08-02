@@ -22,7 +22,7 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => null);
-  const { label, weekdayOnly, weekendOnly } = body ?? {};
+  const { label, weekdayOnly, weekendOnly, sortOrder } = body ?? {};
   if (label !== undefined) {
     if (typeof label !== "string" || !label.trim() || label.length > MAX_LABEL_LEN) {
       return NextResponse.json(
@@ -31,12 +31,16 @@ export async function PATCH(
       );
     }
   }
+  if (sortOrder !== undefined && !Number.isInteger(sortOrder)) {
+    return NextResponse.json({ error: "Urutan tidak valid" }, { status: 400 });
+  }
 
   try {
     await updateTask(id, {
       label: typeof label === "string" ? label.trim() : undefined,
       weekdayOnly: typeof weekdayOnly === "boolean" ? weekdayOnly : undefined,
       weekendOnly: typeof weekendOnly === "boolean" ? weekendOnly : undefined,
+      sortOrder: typeof sortOrder === "number" ? sortOrder : undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

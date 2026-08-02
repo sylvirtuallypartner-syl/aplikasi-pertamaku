@@ -38,6 +38,24 @@ export async function getCompletionsForDate(date: string): Promise<CompletionRow
   return rows as unknown as CompletionRow[];
 }
 
+export interface CompletionRangeRow extends CompletionRow {
+  entry_date: string;
+}
+
+// Dipakai rekap mingguan (Orang Tua) — ambil status beberapa hari sekaligus.
+export async function getCompletionsForRange(
+  start: string,
+  end: string
+): Promise<CompletionRangeRow[]> {
+  const sql = getSql();
+  const rows = await sql`
+    select child_id, task_id, done, approved, entry_date::text as entry_date
+    from completions
+    where entry_date between ${start} and ${end}
+  `;
+  return rows as unknown as CompletionRangeRow[];
+}
+
 // Dipanggil oleh anak (lapor selesai/belum). Mematikan "done" otomatis
 // membatalkan approval Ibu yang sudah ada — supaya tidak ada approval basi
 // menempel di laporan yang sudah berubah.
@@ -87,12 +105,13 @@ export interface TaskRow {
   label: string;
   weekday_only: boolean;
   weekend_only: boolean;
+  sort_order: number;
 }
 
 export async function getAllTasks(): Promise<TaskRow[]> {
   const sql = getSql();
   const rows = await sql`
-    select id, child_id, label, weekday_only, weekend_only
+    select id, child_id, label, weekday_only, weekend_only, sort_order
     from tasks
     order by child_id, sort_order, id
   `;
@@ -119,14 +138,15 @@ export async function createTask(
 
 export async function updateTask(
   id: number,
-  fields: { label?: string; weekdayOnly?: boolean; weekendOnly?: boolean }
+  fields: { label?: string; weekdayOnly?: boolean; weekendOnly?: boolean; sortOrder?: number }
 ): Promise<void> {
   const sql = getSql();
   await sql`
     update tasks set
       label = coalesce(${fields.label ?? null}, label),
       weekday_only = coalesce(${fields.weekdayOnly ?? null}, weekday_only),
-      weekend_only = coalesce(${fields.weekendOnly ?? null}, weekend_only)
+      weekend_only = coalesce(${fields.weekendOnly ?? null}, weekend_only),
+      sort_order = coalesce(${fields.sortOrder ?? null}, sort_order)
     where id = ${id}
   `;
 }

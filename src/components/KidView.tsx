@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CHILDREN, ChildId } from "@/lib/children";
 import { TaskDef, tasksForToday } from "@/lib/tasks";
-import { fullDateLabel, isWeekendDate, todayStr } from "@/lib/date";
+import { fullDateLabel, isWeekendDate, lastNDays, shortDateLabel, todayStr } from "@/lib/date";
 import { EMPTY_ENTRY, StatusEntry, statusIcon, statusRowClass } from "@/lib/status";
 
 const STATUS_POLL_MS = 4000;
+const HISTORY_DAYS = 14;
 
 export default function KidView({ childId }: { childId: ChildId }) {
-  const [date, setDate] = useState(todayStr());
+  const [followToday, setFollowToday] = useState(true);
+  const [viewDate, setViewDate] = useState(todayStr());
   const [tasks, setTasks] = useState<TaskDef[]>([]);
   const [entries, setEntries] = useState<Record<string, StatusEntry>>({});
   const [loaded, setLoaded] = useState(false);
@@ -36,27 +38,30 @@ export default function KidView({ childId }: { childId: ChildId }) {
     }
   }, []);
 
-  const loadStatus = useCallback(async (silent: boolean) => {
-    const today = todayStr();
-    setDate(today);
-    try {
-      const res = await fetch(`/api/status?date=${today}`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal memuat data");
-      setEntries((prev) => {
-        const next = { ...data.entries };
-        for (const key of pending.current) {
-          if (key in prev) next[key] = prev[key];
-        }
-        return next;
-      });
-      setError(null);
-    } catch (err) {
-      if (!silent) setError(err instanceof Error ? err.message : "Gagal memuat data");
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
+  const loadStatus = useCallback(
+    async (silent: boolean) => {
+      const target = followToday ? todayStr() : viewDate;
+      setViewDate(target);
+      try {
+        const res = await fetch(`/api/status?date=${target}`, { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Gagal memuat data");
+        setEntries((prev) => {
+          const next = { ...data.entries };
+          for (const key of pending.current) {
+            if (key in prev) next[key] = prev[key];
+          }
+          return next;
+        });
+        setError(null);
+      } catch (err) {
+        if (!silent) setError(err instanceof Error ? err.message : "Gagal memuat data");
+      } finally {
+        setLoaded(true);
+      }
+    },
+    [followToday, viewDate]
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -76,6 +81,16 @@ export default function KidView({ childId }: { childId: ChildId }) {
     };
   }, [loadTasks, loadStatus]);
 
+  function pickDate(value: string) {
+    if (value === "today") {
+      setFollowToday(true);
+      setViewDate(todayStr());
+    } else {
+      setFollowToday(false);
+      setViewDate(value);
+    }
+  }
+
   async function toggle(taskId: number) {
     const key = `${childId}:${taskId}`;
     const current = entries[key] ?? EMPTY_ENTRY;
@@ -86,7 +101,7 @@ export default function KidView({ childId }: { childId: ChildId }) {
       const res = await fetch("/api/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ childId, taskId, date, done: nextValue }),
+        body: JSON.stringify({ childId, taskId, date: viewDate, done: nextValue }),
       });
       if (!res.ok) throw new Error("Gagal menyimpan");
       setError(null);
@@ -98,13 +113,36 @@ export default function KidView({ childId }: { childId: ChildId }) {
     }
   }
 
-  const weekend = isWeekendDate(date);
+  const weekend = isWeekendDate(viewDate);
   const child = CHILDREN[childId];
   const myTasks = tasksForToday(tasks, childId, weekend);
+  const historyDates = lastNDays(HISTORY_DAYS).slice(1);
 
   return (
     <div>
-      <div className="date-label">{fullDateLabel(date)}</div>
+      <div className="date-picker-row">
+        <select
+          className="date-select"
+          value={followToday ? "today" : viewDate}
+          onChange={(e) => pickDate(e.target.value)}
+        >
+          <option value="today">Hari ini</option>
+          {historyDates.map((d) => (
+            <option key={d} value={d}>
+              {shortDateLabel(d)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="date-label">{fullDateLabel(viewDate)}</div>
+      {!followToday && (
+        <div className="history-banner">
+          Lihat tanggal lain.{" "}
+          <button className="change-btn" onClick={() => pickDate("today")}>
+            Kembali ke hari ini
+          </button>
+        </div>
+      )}
       {error && <div className="error-banner">{error}</div>}
       {!loaded && <div className="loading">Memuat...</div>}
 

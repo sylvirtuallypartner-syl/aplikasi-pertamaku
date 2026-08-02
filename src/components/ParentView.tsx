@@ -1,14 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CHILD_ORDER, CHILDREN, ChildId } from "@/lib/children";
 import { TaskDef, tasksForToday } from "@/lib/tasks";
-import { fullDateLabel, isWeekendDate, todayStr } from "@/lib/date";
+import {
+  addDays,
+  fullDateLabel,
+  isWeekendDate,
+  lastNDays,
+  mondayOf,
+  shortDateLabel,
+  todayStr,
+  weekDates,
+} from "@/lib/date";
 import { EMPTY_ENTRY, StatusEntry, statusIcon, statusRowClass } from "@/lib/status";
 import PinPad from "./PinPad";
 
 const STATUS_POLL_MS = 4000;
 const MAX_TASK_LABEL = 50;
+const HISTORY_DAYS = 14;
 
 interface RawTask {
   id: number;
@@ -16,12 +26,15 @@ interface RawTask {
   label: string;
   weekday_only: boolean;
   weekend_only: boolean;
+  sort_order: number;
 }
 
 interface RewardRate {
   child_id: ChildId;
   amount_per_task: number;
 }
+
+type ByDate = Record<string, Record<string, StatusEntry>>;
 
 function toTaskDef(t: RawTask): TaskDef {
   return {
@@ -40,18 +53,26 @@ function fmtRp(n: number): string {
 export default function ParentView({ onExit }: { onExit: () => void }) {
   const [authChecked, setAuthChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
-  const [date, setDate] = useState(todayStr());
+  const [followToday, setFollowToday] = useState(true);
+  const [viewDate, setViewDate] = useState(todayStr());
   const [tasks, setTasks] = useState<RawTask[]>([]);
   const [rates, setRates] = useState<RewardRate[]>([]);
   const [entries, setEntries] = useState<Record<string, StatusEntry>>({});
   const [error, setError] = useState<string | null>(null);
 
+  const [weekMonday, setWeekMonday] = useState(mondayOf(todayStr()));
+  const [weekByDate, setWeekByDate] = useState<ByDate>({});
+  const [weekError, setWeekError] = useState<string | null>(null);
+  const pendingApprove = useRef<Set<string>>(new Set());
+
   const loadAll = useCallback(async () => {
+    const target = followToday ? todayStr() : viewDate;
+    setViewDate(target);
     try {
       const [tasksRes, ratesRes, statusRes] = await Promise.all([
         fetch("/api/tasks", { cache: "no-store" }),
         fetch("/api/reward-rates", { cache: "no-store" }),
-        fetch(`/api/status?date=${todayStr()}`, { cache: "no-store" }),
+        fetch(`/api/status?date=${target}`, { cache: "no-store" }),
       ]);
       const tasksData = await tasksRes.json();
       const ratesData = await ratesRes.json();
@@ -61,13 +82,35 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       if (!statusRes.ok) throw new Error(statusData.error);
       setTasks(tasksData.tasks);
       setRates(ratesData.rates);
-      setEntries(statusData.entries);
-      setDate(todayStr());
+      // Baris yang lagi disetujui/dibatalkan (masih menunggu respons server)
+      // dipertahankan nilai optimistiknya, supaya tidak ketiban snapshot lama
+      // dari approve() lain yang berjalan bersamaan.
+      setEntries((prevEntries) => {
+        const next = { ...statusData.entries };
+        for (const key of pendingApprove.current) {
+          if (key in prevEntries) next[key] = prevEntries[key];
+        }
+        return next;
+      });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat data");
     }
-  }, []);
+  }, [followToday, viewDate]);
+
+  const loadWeek = useCallback(async () => {
+    const start = weekMonday;
+    const end = addDays(weekMonday, 6);
+    try {
+      const res = await fetch(`/api/status/range?start=${start}&end=${end}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setWeekByDate(data.byDate);
+      setWeekError(null);
+    } catch (err) {
+      setWeekError(err instanceof Error ? err.message : "Gagal memuat rekap mingguan");
+    }
+  }, [weekMonday]);
 
   useEffect(() => {
     (async () => {
@@ -75,15 +118,35 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       const data = await res.json();
       setAuthenticated(!!data.authenticated);
       setAuthChecked(true);
-      if (data.authenticated) loadAll();
+      if (data.authenticated) {
+        loadAll();
+        loadWeek();
+      }
     })();
-  }, [loadAll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!authenticated) return;
     const id = setInterval(loadAll, STATUS_POLL_MS);
     return () => clearInterval(id);
   }, [authenticated, loadAll]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadWeek();
+  }, [authenticated, loadWeek]);
+
+  function pickDate(value: string) {
+    if (value === "today") {
+      setFollowToday(true);
+      setViewDate(todayStr());
+    } else {
+      setFollowToday(false);
+      setViewDate(value);
+    }
+  }
 
   async function handlePinSubmit(pin: string): Promise<string | null> {
     const res = await fetch("/api/parent-auth", {
@@ -95,6 +158,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     if (!res.ok) return data.error || "PIN salah";
     setAuthenticated(true);
     loadAll();
+    loadWeek();
     return null;
   }
 
@@ -141,22 +205,49 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     await loadAll();
   }
 
+  async function moveTask(childId: ChildId, index: number, direction: -1 | 1) {
+    const childTasks = tasks.filter((t) => t.child_id === childId).sort((a, b) => a.sort_order - b.sort_order);
+    const otherIndex = index + direction;
+    if (otherIndex < 0 || otherIndex >= childTasks.length) return;
+    const a = childTasks[index];
+    const b = childTasks[otherIndex];
+    await Promise.all([
+      fetch(`/api/tasks/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sortOrder: b.sort_order }),
+      }),
+      fetch(`/api/tasks/${b.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sortOrder: a.sort_order }),
+      }),
+    ]);
+    await loadAll();
+  }
+
   async function approve(childId: ChildId, taskId: number, approved: boolean) {
     const key = `${childId}:${taskId}`;
     const prev = entries[key] ?? EMPTY_ENTRY;
+    pendingApprove.current.add(key);
     setEntries((p) => ({ ...p, [key]: { ...prev, approved } }));
-    const res = await fetch("/api/approve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ childId, taskId, date, approved }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setEntries((p) => ({ ...p, [key]: prev }));
-      setError(data.error || "Gagal menyimpan persetujuan");
-      return;
+    try {
+      const res = await fetch("/api/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId, taskId, date: viewDate, approved }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEntries((p) => ({ ...p, [key]: prev }));
+        setError(data.error || "Gagal menyimpan persetujuan");
+        return;
+      }
+    } finally {
+      pendingApprove.current.delete(key);
     }
     await loadAll();
+    await loadWeek();
   }
 
   async function saveRate(childId: ChildId, amountPerTask: number) {
@@ -186,12 +277,29 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     );
   }
 
-  const weekend = isWeekendDate(date);
+  const weekend = isWeekendDate(viewDate);
   const allTaskDefs = tasks.map(toTaskDef);
+  const historyDates = lastNDays(HISTORY_DAYS).slice(1);
+  const days = weekDates(weekMonday);
+  const isCurrentWeek = weekMonday === mondayOf(todayStr());
 
   return (
     <div>
-      <div className="date-label">{fullDateLabel(date)}</div>
+      <div className="date-picker-row">
+        <select
+          className="date-select"
+          value={followToday ? "today" : viewDate}
+          onChange={(e) => pickDate(e.target.value)}
+        >
+          <option value="today">Hari ini</option>
+          {historyDates.map((d) => (
+            <option key={d} value={d}>
+              {shortDateLabel(d)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="date-label">{fullDateLabel(viewDate)}</div>
       <div className="who-bar">
         <span>
           Mode: <b>Orang Tua</b>
@@ -211,7 +319,23 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
         const percent = today.length ? Math.round((doneCount / today.length) * 100) : 0;
         const rate = rates.find((r) => r.child_id === childId)?.amount_per_task ?? 0;
         const todayReward = approvedCount * rate;
-        const childTasks = tasks.filter((t) => t.child_id === childId);
+        const childTasks = tasks
+          .filter((t) => t.child_id === childId)
+          .sort((a, b) => a.sort_order - b.sort_order);
+
+        // Rekap mingguan (Senin-Minggu), berdasarkan daftar tugas & tarif SAAT INI.
+        let weekApproved = 0;
+        let weekApplicable = 0;
+        const dayBreakdown = days.map((d) => {
+          const dayTasks = tasksForToday(allTaskDefs, childId, isWeekendDate(d));
+          const dayEntries = weekByDate[d] ?? {};
+          const dayApproved = dayTasks.filter((t) => dayEntries[`${childId}:${t.id}`]?.approved).length;
+          weekApproved += dayApproved;
+          weekApplicable += dayTasks.length;
+          return { date: d, approved: dayApproved, total: dayTasks.length };
+        });
+        const weekPercent = weekApplicable ? Math.round((weekApproved / weekApplicable) * 100) : 0;
+        const weekReward = weekApproved * rate;
 
         return (
           <section key={childId} className="child-card" style={{ borderColor: child.color }}>
@@ -221,10 +345,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
 
             <div className="progress-row">
               <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${percent}%`, background: child.color }}
-                />
+                <div className="progress-fill" style={{ width: `${percent}%`, background: child.color }} />
               </div>
               <span className="progress-text">
                 {doneCount}/{today.length} dilaporkan ({percent}%)
@@ -257,20 +378,60 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
             </ul>
             <p className="subtitle small">Tap tugas yang sudah dilaporkan (✅) untuk mengesahkan/batalkan (✅✅).</p>
 
+            <div className="week-recap">
+              <div className="week-recap-header">
+                <button className="manager-btn" onClick={() => setWeekMonday((m) => addDays(m, -7))}>
+                  ‹
+                </button>
+                <span className="week-recap-title">
+                  {shortDateLabel(weekMonday)} – {shortDateLabel(addDays(weekMonday, 6))}
+                </span>
+                <button
+                  className="manager-btn"
+                  disabled={isCurrentWeek}
+                  onClick={() => setWeekMonday((m) => addDays(m, 7))}
+                >
+                  ›
+                </button>
+              </div>
+              {weekError && <div className="error-banner">{weekError}</div>}
+              <div className="reward-box" style={{ borderColor: child.color }}>
+                💰 Reward minggu ini: <b>{fmtRp(weekReward)}</b> ({weekApproved} tugas disetujui &times; {fmtRp(rate)})
+              </div>
+              <div className="progress-row">
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${weekPercent}%`, background: child.color }} />
+                </div>
+                <span className="progress-text">
+                  {weekApproved}/{weekApplicable} disetujui ({weekPercent}%)
+                </span>
+              </div>
+              <p className="subtitle small">Persentase ini untuk menentukan reward non-uang mingguan.</p>
+              <div className="week-days">
+                {dayBreakdown.map((d) => (
+                  <div key={d.date} className="week-day-pill">
+                    <span className="week-day-name">{shortDateLabel(d.date).slice(0, 3)}</span>
+                    <span className="week-day-count">
+                      {d.approved}/{d.total}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <TaskManager
               childId={childId}
               tasks={childTasks}
               onAdd={addTask}
               onSave={saveTask}
               onDelete={removeTask}
+              onMove={moveTask}
             />
 
             <RateManager childId={childId} amountPerTask={rate} onSave={saveRate} />
           </section>
         );
       })}
-
-      <p className="subtitle small">Reward mingguan belum diatur.</p>
     </div>
   );
 }
@@ -281,12 +442,14 @@ function TaskManager({
   onAdd,
   onSave,
   onDelete,
+  onMove,
 }: {
   childId: ChildId;
   tasks: RawTask[];
   onAdd: (childId: ChildId, label: string, weekdayOnly: boolean, weekendOnly: boolean) => Promise<void>;
   onSave: (id: number, label: string, weekdayOnly: boolean, weekendOnly: boolean) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onMove: (childId: ChildId, index: number, direction: -1 | 1) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -301,7 +464,7 @@ function TaskManager({
       </button>
       {open && (
         <div className="manager-body">
-          {tasks.map((t) =>
+          {tasks.map((t, index) =>
             editingId === t.id ? (
               <TaskEditRow
                 key={t.id}
@@ -314,6 +477,24 @@ function TaskManager({
               />
             ) : (
               <div key={t.id} className="manager-row">
+                <span className="reorder-btns">
+                  <button
+                    className="manager-btn"
+                    disabled={index === 0}
+                    onClick={() => onMove(childId, index, -1)}
+                    aria-label="Naikkan urutan"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    className="manager-btn"
+                    disabled={index === tasks.length - 1}
+                    onClick={() => onMove(childId, index, 1)}
+                    aria-label="Turunkan urutan"
+                  >
+                    ▼
+                  </button>
+                </span>
                 <span className="manager-label">
                   {t.label}
                   {t.weekday_only && <span className="badge">weekday</span>}
