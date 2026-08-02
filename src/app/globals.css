@@ -107,6 +107,36 @@ h1 {
   margin-bottom: 14px;
 }
 
+.date-picker-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.date-select {
+  border: 2px solid #dbe4f2;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #12356b;
+  background: #fff;
+}
+
+.history-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff4e0;
+  color: #8a5a00;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
 .who-bar {
   display: flex;
   align-items: center;
@@ -330,6 +360,59 @@ h1 {
   background: #fffdf5;
 }
 
+/* ---------- Rekap mingguan (Orang Tua) ---------- */
+
+.week-recap {
+  margin-top: 14px;
+  border-top: 1px solid #eef2f9;
+  padding-top: 10px;
+}
+
+.week-recap-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.week-recap-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #12356b;
+}
+
+.week-days {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.week-day-pill {
+  flex: none;
+  min-width: 44px;
+  text-align: center;
+  background: #f7faff;
+  border: 1px solid #dbe4f2;
+  border-radius: 10px;
+  padding: 6px 4px;
+}
+
+.week-day-name {
+  display: block;
+  font-size: 11px;
+  color: #7a8aa3;
+  font-weight: 700;
+}
+
+.week-day-count {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #12356b;
+}
+
 /* ---------- Pengelolaan tugas & reward ---------- */
 
 .manager {
@@ -407,6 +490,18 @@ h1 {
 .manager-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.reorder-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reorder-btns .manager-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .manager-add {

@@ -32,13 +32,25 @@ create index if not exists completions_date_idx on completions (entry_date);
 
 -- Reward harian = jumlah tugas selesai x tarif per tugas (Rupiah), beda tiap
 -- anak. Hanya tampil di tampilan Orang Tua (PIN), tidak pernah dikirim ke
--- tampilan anak. Reward mingguan belum ditentukan — belum ada di schema ini.
+-- tampilan anak.
 drop table if exists reward_tiers;
 
 create table if not exists reward_rates (
   child_id text primary key check (child_id in ('sean', 'gavril')),
   amount_per_task integer not null default 0
 );
+
+-- Reward mingguan non-uang, berdasarkan persentase tugas disetujui Senin-
+-- Minggu (lihat rekap mingguan). Tier tertinggi yang tercapai (min_percent
+-- <= persentase minggu itu) yang berlaku.
+create table if not exists weekly_reward_tiers (
+  id integer generated always as identity primary key,
+  child_id text not null check (child_id in ('sean', 'gavril')),
+  min_percent int not null check (min_percent between 0 and 100),
+  label text not null
+);
+
+create index if not exists weekly_reward_tiers_child_idx on weekly_reward_tiers (child_id, min_percent desc);
 
 -- ============== SEED: tugas awal (bisa diedit lewat tampilan Orang Tua) ==============
 insert into tasks (child_id, label, weekday_only, weekend_only, sort_order)
@@ -74,3 +86,13 @@ insert into reward_rates (child_id, amount_per_task) values
   ('sean', 1500),
   ('gavril', 1000)
 on conflict (child_id) do nothing;
+
+-- ============== SEED: reward mingguan non-uang awal (bisa diedit lewat tampilan Orang Tua) ==============
+insert into weekly_reward_tiers (child_id, min_percent, label)
+select * from (values
+  ('sean', 95, 'Boleh makanan favorit'),
+  ('sean', 85, 'Boleh download 1 game'),
+  ('gavril', 95, 'Boleh makanan favorit'),
+  ('gavril', 85, 'Boleh download 1 game')
+) as t(child_id, min_percent, label)
+where not exists (select 1 from weekly_reward_tiers);
