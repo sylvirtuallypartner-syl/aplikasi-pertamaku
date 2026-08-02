@@ -21,9 +21,12 @@ Satu layar sederhana untuk daftar tugas harian Sean (11 tahun) dan Gavril
   jadi kalau ada yang lupa centang, bisa dibuka lagi hari sebelumnya dan
   dibetulkan — tidak harus hari ini terus.
 - Tampilan Orang Tua juga punya **rekap mingguan (Senin–Minggu)**: total
-  reward uang minggu itu, dan persentase tugas yang disetujui untuk jadi
-  bahan menentukan reward non-uang. Bisa navigasi ke minggu-minggu
-  sebelumnya juga.
+  reward uang minggu itu, dan persentase tugas yang disetujui. Bisa navigasi
+  ke minggu-minggu sebelumnya juga.
+- **Reward mingguan non-uang otomatis**, berdasarkan persentase tugas
+  disetujui minggu itu — default: **≥85% boleh download 1 game**, **≥95%
+  boleh makanan favorit**. Ambang & keterangannya bisa diubah/ditambah lewat
+  tampilan Orang Tua, beda-beda per anak.
 - Urutan tugas di **Kelola daftar tugas** bisa diubah pakai tombol ▲/▼, jadi
   tugas baru tidak harus nyangkut di paling bawah.
 
@@ -63,19 +66,22 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
    dicentang.
 5. **Rekap mingguan**: di bawah daftar tugas tiap anak, ada ringkasan
    Senin–Minggu — total reward uang minggu itu, persentase tugas yang
-   disetujui (buat bahan reward non-uang), dan rincian 7 hari. Tombol ‹ ›
-   untuk pindah ke minggu lain.
+   disetujui, reward non-uang yang tercapai (kalau ada), dan rincian 7 hari.
+   Tombol ‹ › untuk pindah ke minggu lain.
 6. **Kelola daftar tugas**: tambah, edit teks, ubah weekday/weekend saja,
    hapus tugas, atau ubah urutannya pakai tombol ▲/▼ — per anak.
 7. **Ubah tarif reward per tugas**: ganti nominal Rupiah per tugas yang
    disetujui, beda-beda per anak.
-8. Tap **Keluar** untuk logout dari mode Orang Tua.
+8. **Kelola reward mingguan (non-uang)**: atur ambang persentase +
+   keterangan reward-nya (default ≥85% download 1 game, ≥95% makanan
+   favorit) — tambah, edit, atau hapus tier, per anak. Kalau minggu itu
+   mencapai lebih dari satu ambang, yang dipakai cuma yang tertinggi
+   (tidak menumpuk).
+9. Tap **Keluar** untuk logout dari mode Orang Tua.
 
-Reward mingguan dalam bentuk **uang** otomatis dihitung dari rekap di atas
-(jumlah tugas disetujui minggu itu × tarif). Reward mingguan dalam bentuk
-**non-uang** (misal jalan-jalan, waktu main tambahan) masih diputuskan manual
-oleh orang tua berdasarkan persentase di rekap — app ini cuma menyediakan
-angkanya, keputusan rewardnya sendiri belum diotomatisasi.
+Reward mingguan dalam bentuk **uang** dan **non-uang** sekarang dua-duanya
+otomatis dihitung dari rekap mingguan — uang dari jumlah tugas disetujui ×
+tarif, non-uang dari ambang persentase yang tercapai.
 
 ## Struktur teknis
 
@@ -104,6 +110,12 @@ angkanya, keputusan rewardnya sendiri belum diotomatisasi.
 - **Urutan tugas** (`tasks.sort_order`) bisa diubah lewat `PATCH
   /api/tasks/:id` — tombol ▲/▼ di Kelola daftar tugas menukar `sort_order`
   dua tugas bertetangga.
+- **Reward mingguan non-uang** (`weekly_reward_tiers`, mirip pola
+  reward_tiers versi lama tapi khusus mingguan) — satu anak bisa punya
+  beberapa tier (ambang persen + keterangan); tier dengan `min_percent`
+  tertinggi yang masih ≤ persentase minggu itu yang dipakai. Endpoint
+  `/api/weekly-tiers` parent-only untuk GET maupun ubah, sama seperti
+  tarif reward harian.
 
 ### Kenapa tanggal "hari ini" bisa salah?
 
@@ -141,13 +153,15 @@ Next.js, tidak perlu ubah setting apa pun.
    **Open in Neon** (SQL editor bawaan Neon).
 2. Salin isi file [`migrations/001_init.sql`](migrations/001_init.sql), tempel
    di SQL editor, lalu jalankan (Run). Ini membuat tabel `tasks`,
-   `completions`, `reward_rates`, lengkap dengan tugas & tarif reward awal
-   (Sean Rp1.500/tugas, Gavril Rp1.000/tugas) yang bisa kamu ubah lagi lewat
-   tampilan Orang Tua.
+   `completions`, `reward_rates`, `weekly_reward_tiers`, lengkap dengan
+   tugas, tarif reward, dan tier reward mingguan awal yang bisa kamu ubah
+   lagi lewat tampilan Orang Tua.
 3. Kalau database ini **sudah pernah** kamu setup sebelumnya (sudah ada
-   tabel `completions`), jalankan juga [`migrations/002_approval.sql`](migrations/002_approval.sql)
-   di SQL editor yang sama — ini menambah kolom `approved` (persetujuan Ibu)
-   yang belum ada di setup lama. Aman dijalankan meski kolomnya sudah ada.
+   tabel `completions`), jalankan juga
+   [`migrations/002_approval.sql`](migrations/002_approval.sql) (kolom
+   `approved`) dan [`migrations/003_weekly_reward.sql`](migrations/003_weekly_reward.sql)
+   (tabel `weekly_reward_tiers`) di SQL editor yang sama. Keduanya aman
+   dijalankan berkali-kali.
 
 Alternatif lewat terminal (kalau punya `psql`):
 
@@ -155,6 +169,7 @@ Alternatif lewat terminal (kalau punya `psql`):
 vercel env pull .env.local   # ambil DATABASE_URL dari Vercel
 psql "$DATABASE_URL" -f migrations/001_init.sql
 psql "$DATABASE_URL" -f migrations/002_approval.sql
+psql "$DATABASE_URL" -f migrations/003_weekly_reward.sql
 ```
 
 ### 4. Set PIN Orang Tua

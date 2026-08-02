@@ -18,6 +18,7 @@ import PinPad from "./PinPad";
 
 const STATUS_POLL_MS = 4000;
 const MAX_TASK_LABEL = 50;
+const MAX_TIER_LABEL = 60;
 const HISTORY_DAYS = 14;
 
 interface RawTask {
@@ -32,6 +33,13 @@ interface RawTask {
 interface RewardRate {
   child_id: ChildId;
   amount_per_task: number;
+}
+
+interface WeeklyTier {
+  id: number;
+  child_id: ChildId;
+  min_percent: number;
+  label: string;
 }
 
 type ByDate = Record<string, Record<string, StatusEntry>>;
@@ -63,6 +71,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
   const [weekMonday, setWeekMonday] = useState(mondayOf(todayStr()));
   const [weekByDate, setWeekByDate] = useState<ByDate>({});
   const [weekError, setWeekError] = useState<string | null>(null);
+  const [weeklyTiers, setWeeklyTiers] = useState<WeeklyTier[]>([]);
   const pendingApprove = useRef<Set<string>>(new Set());
 
   const loadAll = useCallback(async () => {
@@ -112,6 +121,17 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     }
   }, [weekMonday]);
 
+  const loadWeeklyTiers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/weekly-tiers", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setWeeklyTiers(data.tiers);
+    } catch (err) {
+      setWeekError(err instanceof Error ? err.message : "Gagal memuat reward mingguan");
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       const res = await fetch("/api/parent-auth", { cache: "no-store" });
@@ -121,6 +141,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       if (data.authenticated) {
         loadAll();
         loadWeek();
+        loadWeeklyTiers();
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,6 +180,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     setAuthenticated(true);
     loadAll();
     loadWeek();
+    loadWeeklyTiers();
     return null;
   }
 
@@ -264,6 +286,44 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     await loadAll();
   }
 
+  async function addWeeklyTier(childId: ChildId, minPercent: number, label: string) {
+    const res = await fetch("/api/weekly-tiers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId, minPercent, label }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Gagal menambah reward mingguan");
+      return;
+    }
+    await loadWeeklyTiers();
+  }
+
+  async function saveWeeklyTier(id: number, minPercent: number, label: string) {
+    const res = await fetch(`/api/weekly-tiers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ minPercent, label }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Gagal mengubah reward mingguan");
+      return;
+    }
+    await loadWeeklyTiers();
+  }
+
+  async function removeWeeklyTier(id: number) {
+    const res = await fetch(`/api/weekly-tiers/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Gagal menghapus reward mingguan");
+      return;
+    }
+    await loadWeeklyTiers();
+  }
+
   if (!authChecked) return null;
 
   if (!authenticated) {
@@ -336,6 +396,8 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
         });
         const weekPercent = weekApplicable ? Math.round((weekApproved / weekApplicable) * 100) : 0;
         const weekReward = weekApproved * rate;
+        const childWeeklyTiers = weeklyTiers.filter((t) => t.child_id === childId);
+        const reachedTier = childWeeklyTiers.find((t) => t.min_percent <= weekPercent);
 
         return (
           <section key={childId} className="child-card" style={{ borderColor: child.color }}>
@@ -406,6 +468,13 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
                   {weekApproved}/{weekApplicable} disetujui ({weekPercent}%)
                 </span>
               </div>
+              {reachedTier ? (
+                <div className="reward-box" style={{ borderColor: child.color }}>
+                  🎉 Reward mingguan (non-uang): <b>{reachedTier.label}</b>
+                </div>
+              ) : (
+                <p className="subtitle small">Belum mencapai reward non-uang minggu ini.</p>
+              )}
               <p className="subtitle small">Persentase ini untuk menentukan reward non-uang mingguan.</p>
               <div className="week-days">
                 {dayBreakdown.map((d) => (
@@ -429,6 +498,14 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
             />
 
             <RateManager childId={childId} amountPerTask={rate} onSave={saveRate} />
+
+            <WeeklyTierManager
+              childId={childId}
+              tiers={childWeeklyTiers}
+              onAdd={addWeeklyTier}
+              onSave={saveWeeklyTier}
+              onDelete={removeWeeklyTier}
+            />
           </section>
         );
       })}
@@ -643,6 +720,133 @@ function RateManager({
           Ubah tarif reward per tugas
         </button>
       )}
+    </div>
+  );
+}
+
+function WeeklyTierManager({
+  childId,
+  tiers,
+  onAdd,
+  onSave,
+  onDelete,
+}: {
+  childId: ChildId;
+  tiers: WeeklyTier[];
+  onAdd: (childId: ChildId, minPercent: number, label: string) => Promise<void>;
+  onSave: (id: number, minPercent: number, label: string) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [newPercent, setNewPercent] = useState(85);
+  const [newLabel, setNewLabel] = useState("");
+
+  return (
+    <div className="manager">
+      <button className="manager-toggle" onClick={() => setOpen((v) => !v)}>
+        {open ? "Tutup" : "Kelola reward mingguan (non-uang)"}
+      </button>
+      {open && (
+        <div className="manager-body">
+          {tiers.map((tr) =>
+            editingId === tr.id ? (
+              <WeeklyTierEditRow
+                key={tr.id}
+                tier={tr}
+                onCancel={() => setEditingId(null)}
+                onSave={async (minPercent, label) => {
+                  await onSave(tr.id, minPercent, label);
+                  setEditingId(null);
+                }}
+              />
+            ) : (
+              <div key={tr.id} className="manager-row">
+                <span className="manager-label">
+                  <span className="badge">&ge;{tr.min_percent}%</span> {tr.label}
+                </span>
+                <button className="manager-btn" onClick={() => setEditingId(tr.id)}>
+                  Edit
+                </button>
+                <button className="manager-btn danger" onClick={() => onDelete(tr.id)}>
+                  Hapus
+                </button>
+              </div>
+            )
+          )}
+
+          <div className="manager-add">
+            <input
+              className="manager-input amount"
+              type="number"
+              min={0}
+              max={100}
+              value={newPercent}
+              onChange={(e) => setNewPercent(Number(e.target.value))}
+            />
+            <input
+              className="manager-input"
+              placeholder="Reward non-uang"
+              maxLength={MAX_TIER_LABEL}
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+            />
+            <button
+              className="manager-btn primary"
+              disabled={!newLabel.trim()}
+              onClick={async () => {
+                await onAdd(childId, newPercent, newLabel.trim());
+                setNewLabel("");
+                setNewPercent(85);
+              }}
+            >
+              Tambah
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeeklyTierEditRow({
+  tier,
+  onSave,
+  onCancel,
+}: {
+  tier: WeeklyTier;
+  onSave: (minPercent: number, label: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [minPercent, setMinPercent] = useState(tier.min_percent);
+  const [label, setLabel] = useState(tier.label);
+
+  return (
+    <div className="manager-add">
+      <input
+        className="manager-input amount"
+        type="number"
+        min={0}
+        max={100}
+        value={minPercent}
+        onChange={(e) => setMinPercent(Number(e.target.value))}
+      />
+      <input
+        className="manager-input"
+        maxLength={MAX_TIER_LABEL}
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+      />
+      <button
+        className="manager-btn primary"
+        disabled={!label.trim()}
+        onClick={() => onSave(minPercent, label.trim())}
+      >
+        Simpan
+      </button>
+      <button className="manager-btn" onClick={onCancel}>
+        Batal
+      </button>
     </div>
   );
 }
