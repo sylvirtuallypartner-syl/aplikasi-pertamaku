@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask, getAllTasks } from "@/lib/db";
-import { isParentRequest } from "@/lib/auth";
 import { isChildId } from "@/lib/children";
 
 const MAX_LABEL_LEN = 50;
 
-// Publik — daftar tugas perlu terlihat di tampilan anak juga.
 export async function GET() {
   try {
     const tasks = await getAllTasks();
@@ -18,12 +16,7 @@ export async function GET() {
   }
 }
 
-// Parent-only — hanya Orang Tua (PIN) yang boleh menambah tugas.
 export async function POST(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
-
   const body = await req.json().catch(() => null);
   const { childId, label, weekdayOnly, weekendOnly } = body ?? {};
 

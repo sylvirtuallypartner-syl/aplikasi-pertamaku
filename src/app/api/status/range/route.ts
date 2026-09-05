@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCompletionsForRange } from "@/lib/db";
 import { isValidDateStr } from "@/lib/date";
-import { isParentRequest } from "@/lib/auth";
 
-// Parent-only — dipakai untuk rekap mingguan (reward & % tugas disetujui).
 export async function GET(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
-
   const start = req.nextUrl.searchParams.get("start");
   const end = req.nextUrl.searchParams.get("end");
   if (!isValidDateStr(start) || !isValidDateStr(end)) {

@@ -1,87 +1,66 @@
 # Kids Tracker
 
-Satu layar sederhana untuk daftar tugas harian Sean (11 tahun) dan Gavril
-(6 tahun), plus tampilan Orang Tua (PIN) untuk memantau progres dan reward.
+Aplikasi khusus **Orang Tua** untuk mencatat tugas harian Sean (11 tahun)
+dan Gavril (6 tahun) dan menghitung reward-nya. Tidak ada layar/login
+terpisah untuk anak — Ibu yang langsung mencentang tugas begitu tugasnya
+selesai dikerjakan.
 
-- Tiap anak cuma melihat & mencentang daftar tugasnya sendiri (tidak ada
-  daftar anak lain di layarnya) — mencegah Sean dan Gavril saling
-  mencentang tugas satu sama lain.
-- Tugas untuk hari kerja dan akhir pekan bisa berbeda, muncul otomatis sesuai
-  hari ini.
-- Update tersinkron near-real-time antar HP (polling tiap 4 detik).
-- Status tiap tugas punya 2 tahap: anak tap = **dilaporkan** (⬜ → ✅), lalu
-  Ibu (lewat tampilan Orang Tua, PIN) tap lagi = **disahkan** (✅ → ✅✅).
-- Tampilan **Orang Tua** (dikunci PIN 6 digit) bisa melihat progres kedua
-  anak, mengesahkan tugas yang dilaporkan, serta mengedit daftar tugas dan
-  tarif reward. Reward dihitung **per tugas yang sudah disahkan Ibu** (mis.
-  Sean Rp1.500/tugas, Gavril Rp1.000/tugas) — tugas yang baru dilaporkan
-  tapi belum disahkan belum dihitung reward. Reward **sengaja disembunyikan
-  dari tampilan anak** — anak hanya melihat status ⬜/✅/✅✅ biasa.
-- Ada dropdown tanggal (14 hari terakhir) di layar anak maupun Orang Tua,
-  jadi kalau ada yang lupa centang, bisa dibuka lagi hari sebelumnya dan
-  dibetulkan — tidak harus hari ini terus.
-- Tampilan Orang Tua juga punya **rekap mingguan (Senin–Minggu)**: total
-  reward uang minggu itu, dan persentase tugas yang disetujui. Bisa navigasi
-  ke minggu-minggu sebelumnya juga.
+- Satu layar, **tanpa PIN atau login apa pun** — begitu buka link, langsung
+  masuk ke dashboard.
+- Kedua anak tampil di layar yang sama. Tap tugas = langsung dianggap
+  selesai (⬜ → ✅). Tap lagi untuk membatalkan kalau salah pencet.
+- Tugas untuk hari kerja dan akhir pekan bisa berbeda, muncul otomatis
+  sesuai hari ini.
+- **Dropdown tanggal** (14 hari terakhir) untuk melihat/mencatat hari
+  sebelumnya — berguna kalau ada yang lupa dicentang pas harinya.
+- **Reward harian (uang)**: dihitung otomatis dari jumlah tugas selesai ×
+  tarif per tugas (mis. Sean Rp1.500/tugas, Gavril Rp1.000/tugas), beda
+  tarif per anak, bisa diubah kapan saja.
+- **Rekap mingguan (Senin–Minggu)**: total reward uang minggu itu,
+  persentase tugas yang selesai, rincian per hari, dan navigasi ke
+  minggu-minggu sebelumnya.
 - **Reward mingguan non-uang otomatis**, berdasarkan persentase tugas
-  disetujui minggu itu — default: **≥85% boleh download 1 game**, **≥95%
-  boleh makanan favorit**. Ambang & keterangannya bisa diubah/ditambah lewat
-  tampilan Orang Tua, beda-beda per anak.
+  selesai minggu itu — default: **≥85% boleh download 1 game**, **≥95%
+  boleh makanan favorit**. Ambang & keterangannya bisa diubah/ditambah,
+  beda-beda per anak.
 - Urutan tugas di **Kelola daftar tugas** bisa diubah pakai tombol ▲/▼, jadi
   tugas baru tidak harus nyangkut di paling bawah.
+- **Reminder notifikasi harian** (opsional, jam 20:00 WIB): kalau diaktifkan,
+  HP akan dapat notifikasi push kalau masih ada tugas yang belum dicentang
+  hari itu — jadi tidak khawatir lupa. Tidak pakai email atau WhatsApp.
 
-Tidak ada notifikasi, tidak ada dark mode, tidak ada pengaturan lain di luar
-itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
+Tidak ada dark mode atau pengaturan lain di luar itu — sengaja dibuat
+sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 
 ## Cara pakai
 
-### Sebagai anak
-
-1. Buka link Vercel dari HP.
-2. Pilih nama kamu (Sean atau Gavril) — sekali saja, tersimpan otomatis di HP
-   itu. Kalau HP dipakai bergantian, tap **Ganti** di pojok atas untuk pilih
-   nama lain.
-3. Tap tugas yang sudah selesai — status berubah dari ⬜ jadi ✅. Hanya tugas
-   milikmu yang muncul di layar.
-4. Setelah Ibu mengesahkan lewat tampilan Orang Tua, status berubah jadi ✅✅
-   — itu tandanya sudah benar-benar dihitung untuk reward.
-5. Tugas yang muncul otomatis menyesuaikan hari ini — tugas khusus hari
-   sekolah tidak muncul di weekend, dan sebaliknya.
-6. Lupa centang kemarin? Buka dropdown tanggal di atas, pilih harinya, tap
-   tugas yang ketinggalan, lalu tap **Kembali ke hari ini** untuk balik lagi.
-7. Kalau dua HP dibuka bersamaan, centang di satu HP akan muncul di HP lain
-   dalam beberapa detik tanpa perlu refresh manual.
-
-### Sebagai orang tua
-
-1. Di layar pilih nama, tap **Orang Tua**, masukkan PIN (6 digit).
-2. Lihat progres hari ini per anak: berapa yang **dilaporkan** (ditap anak)
-   dan berapa yang **disetujui Ibu**, plus reward hari ini (dihitung dari
-   yang disetujui saja).
-3. **Sahkan tugas**: tap baris tugas yang berstatus ✅ (sudah dilaporkan)
-   untuk mengesahkannya jadi ✅✅ — tap lagi untuk membatalkan kalau salah
-   pencet. Tugas yang masih ⬜ (belum dilaporkan anak) tidak bisa ditap dulu.
-4. **Ganti tanggal**: pakai dropdown di atas untuk lihat/sahkan tugas hari
-   sebelumnya (14 hari terakhir) — berguna kalau ada yang lupa disahkan atau
-   dicentang.
+1. Buka link Vercel — langsung masuk ke dashboard, tidak ada layar login.
+2. Kedua anak (Sean & Gavril) langsung tampil di satu layar dengan daftar
+   tugas hari ini masing-masing.
+3. Tap tugas begitu selesai dikerjakan — status berubah ⬜ → ✅, dan reward
+   hari ini otomatis ikut terhitung. Tap lagi untuk membatalkan.
+4. Lupa mencatat kemarin? Buka dropdown tanggal di atas, pilih harinya, tap
+   tugas yang ketinggalan, lalu pilih **Hari ini** lagi untuk balik.
 5. **Rekap mingguan**: di bawah daftar tugas tiap anak, ada ringkasan
-   Senin–Minggu — total reward uang minggu itu, persentase tugas yang
-   disetujui, reward non-uang yang tercapai (kalau ada), dan rincian 7 hari.
-   Tombol ‹ › untuk pindah ke minggu lain.
+   Senin–Minggu — total reward uang minggu itu, persentase tugas selesai,
+   reward non-uang yang tercapai (kalau ada), dan rincian 7 hari. Tombol
+   ‹ › untuk pindah ke minggu lain.
 6. **Kelola daftar tugas**: tambah, edit teks, ubah weekday/weekend saja,
    hapus tugas, atau ubah urutannya pakai tombol ▲/▼ — per anak.
-7. **Ubah tarif reward per tugas**: ganti nominal Rupiah per tugas yang
-   disetujui, beda-beda per anak.
+7. **Ubah tarif reward per tugas**: ganti nominal Rupiah per tugas selesai,
+   beda-beda per anak.
 8. **Kelola reward mingguan (non-uang)**: atur ambang persentase +
    keterangan reward-nya (default ≥85% download 1 game, ≥95% makanan
    favorit) — tambah, edit, atau hapus tier, per anak. Kalau minggu itu
    mencapai lebih dari satu ambang, yang dipakai cuma yang tertinggi
    (tidak menumpuk).
-9. Tap **Keluar** untuk logout dari mode Orang Tua.
-
-Reward mingguan dalam bentuk **uang** dan **non-uang** sekarang dua-duanya
-otomatis dihitung dari rekap mingguan — uang dari jumlah tugas disetujui ×
-tarif, non-uang dari ambang persentase yang tercapai.
+9. **Reminder notifikasi**: tombol "🔔 Aktifkan reminder harian" di bagian
+   atas. Sekali diaktifkan di satu HP, HP itu akan dapat notifikasi push
+   jam 20:00 WIB kalau masih ada tugas yang belum dicentang hari itu. Tap
+   "🔕 Matikan reminder harian" untuk mematikan lagi. **Khusus iPhone**:
+   Safari cuma bisa kirim notifikasi push kalau halaman ini sudah di-"Add to
+   Home Screen" dulu (Share → Add to Home Screen), baru dibuka dari ikon di
+   home screen itu, baru tombol Aktifkan-nya bisa dipakai.
 
 ## Struktur teknis
 
@@ -90,46 +69,49 @@ tarif, non-uang dari ambang persentase yang tercapai.
 - **Daftar anak** (nama, umur, emoji, warna) statis di kode:
   `src/lib/children.ts`.
 - **Daftar tugas & tarif reward tersimpan di database**, bisa diedit lewat
-  tampilan Orang Tua — tidak perlu edit kode untuk mengubahnya.
-- **Status harian** (`completions`) juga di database, per anak per tugas per
-  tanggal — kolom `done` (dilaporkan anak) dan `approved` (disahkan Ibu)
-  terpisah. Anak cuma boleh mengubah `done` (lewat `/api/status`); hanya sesi
-  Orang Tua yang boleh mengubah `approved` (lewat `/api/approve`, dan gagal
-  kalau `done` masih false). Mengubah `done` jadi false otomatis mengembalikan
-  `approved` ke false, supaya tidak ada approval basi menempel di laporan
-  yang sudah berubah.
+  aplikasi — tidak perlu edit kode untuk mengubahnya.
+- **Status harian** (`completions`) juga di database, per anak per tugas
+  per tanggal. Skema tabelnya masih punya kolom `done` dan `approved`
+  peninggalan versi lama (waktu anak & orang tua punya tampilan terpisah),
+  tapi sekarang satu tap Orang Tua langsung mengisi keduanya sekaligus —
+  jadi tidak ada lagi tahap "menunggu disahkan". Data lama dari sebelum
+  perubahan ini (kalau ada baris yang `done` tapi belum `approved`) tetap
+  tersimpan apa adanya, cuma tampil sebagai belum selesai.
+- **Tidak ada autentikasi sama sekali** — semua endpoint API terbuka untuk
+  siapa pun yang punya link (dulu ada gerbang PIN, sekarang dihapus supaya
+  langsung masuk tanpa hambatan). Jangan bagikan link deployment ke orang
+  yang tidak berhak mengubah data.
 - **Tarif reward** (`reward_rates`, satu baris per anak — jumlah Rupiah per
-  tugas yang disetujui) hanya bisa diakses lewat endpoint yang mengecek sesi
-  Orang Tua (cookie PIN) — tidak pernah dikirim ke tampilan anak.
-- **Sinkron antar HP**: polling ke server tiap 4 detik + saat layar dibuka
-  lagi (mendekati real-time tanpa perlu WebSocket).
-- **Rekap mingguan** dihitung dari `GET /api/status/range` (parent-only),
-  mengambil status 7 hari sekaligus lalu diagregasi di klien memakai daftar
+  tugas selesai) dan **reward mingguan non-uang** (`weekly_reward_tiers`,
+  bisa banyak tier per anak) bisa diubah lewat aplikasi.
+- **Rekap mingguan** dihitung dari `GET /api/status/range`, mengambil status
+  7 hari sekaligus lalu diagregasi di klien memakai daftar
   tugas & tarif reward **saat ini** (bukan snapshot historis — kalau tugas
   atau tarif diubah, rekap minggu lalu ikut memakai angka yang baru).
 - **Urutan tugas** (`tasks.sort_order`) bisa diubah lewat `PATCH
   /api/tasks/:id` — tombol ▲/▼ di Kelola daftar tugas menukar `sort_order`
   dua tugas bertetangga.
-- **Reward mingguan non-uang** (`weekly_reward_tiers`, mirip pola
-  reward_tiers versi lama tapi khusus mingguan) — satu anak bisa punya
-  beberapa tier (ambang persen + keterangan); tier dengan `min_percent`
-  tertinggi yang masih ≤ persentase minggu itu yang dipakai. Endpoint
-  `/api/weekly-tiers` parent-only untuk GET maupun ubah, sama seperti
-  tarif reward harian.
+- **Sinkron antar HP**: polling ke server tiap 4 detik + saat layar dibuka
+  lagi, dan langsung memuat ulang begitu ganti tanggal dari dropdown
+  (tidak menunggu jadwal polling berikutnya).
+- **Reminder notifikasi** pakai Web Push standar (service worker di
+  `public/sw.js`) + Vercel Cron yang memanggil `GET /api/cron/reminder`
+  tiap hari jam 20:00 WIB (`vercel.json`). Cron ini menghitung tugas yang
+  belum di-approve hari itu untuk kedua anak, dan kalau ada yang belum,
+  kirim satu notifikasi ke semua HP yang sudah mengaktifkan (tabel
+  `push_subscriptions`). Langganan yang sudah tidak valid (HP uninstall
+  app/ganti browser) otomatis dihapus saat pengiriman gagal.
 
 ### Kenapa tanggal "hari ini" bisa salah?
 
-Aplikasi ini tidak punya jam server sendiri untuk tanggal — setiap HP
-menentukan "hari ini" dari jam & zona waktu perangkatnya masing-masing (data
-per tugas per hari sendiri-sendiri di database, jadi hari baru **selalu**
-mulai kosong — sudah diverifikasi langsung, tidak ada tugas yang
-"ke-bawa" dari hari sebelumnya). Kalau suatu HP jam/zona waktunya salah
-setel, tugas yang dicentang malam hari bisa "salah tanggal" (misal tercatat
-untuk besok), sehingga besoknya kelihatan seperti "sudah tercentang
-semua" padahal itu sebenarnya centangan tadi malam yang salah tanggal.
-Kalau ini terjadi: cek pengaturan jam & zona waktu (harus WIB/Asia-Jakarta,
-idealnya "atur otomatis") di HP yang dipakai, dan pakai dropdown tanggal
-untuk mengecek tugas itu sebenarnya tersimpan di tanggal berapa.
+Aplikasi ini tidak punya jam server sendiri untuk tanggal — HP yang dipakai
+menentukan "hari ini" dari jam & zona waktu perangkatnya sendiri (data
+tersimpan per tanggal sendiri-sendiri di database, jadi hari baru **selalu**
+mulai kosong). Kalau jam/zona waktu HP salah setel, tugas yang dicentang
+malam hari bisa "salah tanggal". Kalau ini terjadi: cek pengaturan jam &
+zona waktu (harus WIB/Asia-Jakarta, idealnya "atur otomatis"), dan pakai
+dropdown tanggal untuk mengecek tugas itu sebenarnya tersimpan di tanggal
+berapa.
 
 ## Setup — sekali saja di dashboard Vercel
 
@@ -155,13 +137,16 @@ Next.js, tidak perlu ubah setting apa pun.
    di SQL editor, lalu jalankan (Run). Ini membuat tabel `tasks`,
    `completions`, `reward_rates`, `weekly_reward_tiers`, lengkap dengan
    tugas, tarif reward, dan tier reward mingguan awal yang bisa kamu ubah
-   lagi lewat tampilan Orang Tua.
+   lagi lewat aplikasi.
 3. Kalau database ini **sudah pernah** kamu setup sebelumnya (sudah ada
    tabel `completions`), jalankan juga
    [`migrations/002_approval.sql`](migrations/002_approval.sql) (kolom
-   `approved`) dan [`migrations/003_weekly_reward.sql`](migrations/003_weekly_reward.sql)
-   (tabel `weekly_reward_tiers`) di SQL editor yang sama. Keduanya aman
-   dijalankan berkali-kali.
+   `approved`), [`migrations/003_weekly_reward.sql`](migrations/003_weekly_reward.sql)
+   (tabel `weekly_reward_tiers`), dan
+   [`migrations/004_push_notifications.sql`](migrations/004_push_notifications.sql)
+   (tabel `push_subscriptions`, untuk reminder notifikasi) di SQL editor
+   yang sama. Semuanya aman dijalankan berkali-kali, dan **tidak menghapus
+   data tugas yang sudah tercatat** — hanya menambah struktur yang belum ada.
 
 Alternatif lewat terminal (kalau punya `psql`):
 
@@ -170,29 +155,40 @@ vercel env pull .env.local   # ambil DATABASE_URL dari Vercel
 psql "$DATABASE_URL" -f migrations/001_init.sql
 psql "$DATABASE_URL" -f migrations/002_approval.sql
 psql "$DATABASE_URL" -f migrations/003_weekly_reward.sql
+psql "$DATABASE_URL" -f migrations/004_push_notifications.sql
 ```
 
-### 4. Set PIN Orang Tua
+### 4. Aktifkan reminder notifikasi (opsional)
 
-Di Vercel → Project Settings → Environment Variables, tambahkan:
+Lewati langkah ini kalau tidak butuh reminder — aplikasi tetap jalan normal
+tanpa notifikasi.
 
-```
-PARENT_PIN=482913
-```
-
-**Harus 6 digit angka** (ganti `482913` dengan angka pilihanmu sendiri —
-jangan yang gampang ditebak seperti 111111 atau 123456). Redeploy sekali
-setelah menambahkan/mengubah variable ini kalau deployment sebelumnya sudah
-berjalan duluan.
+1. Generate sepasang kunci VAPID (sekali saja, di komputer mana pun yang ada
+   Node.js):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+2. Di Vercel → Project Settings → Environment Variables, tambahkan tiga
+   variable ini (Production, Preview, Development):
+   ```
+   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<Public Key dari langkah 1>
+   VAPID_PRIVATE_KEY=<Private Key dari langkah 1>
+   CRON_SECRET=<string acak bebas, mis. hasil generate password>
+   ```
+3. Redeploy sekali (Vercel otomatis menjadwalkan cron dari `vercel.json`
+   setelah deploy berikutnya).
+4. Buka aplikasi, tap **🔔 Aktifkan reminder harian** di tiap HP yang mau
+   dapat notifikasi. Ulangi di HP lain kalau lebih dari satu orang tua mau
+   dapat reminder.
 
 ### 5. Selesai
 
-Buka URL deployment dari HP.
+Buka URL deployment — langsung masuk ke dashboard.
 
 ## Development lokal (opsional)
 
 ```bash
-vercel env pull .env.local   # menarik DATABASE_URL & PARENT_PIN dari Vercel
+vercel env pull .env.local   # menarik DATABASE_URL dari Vercel
 npm install
 npm run dev
 ```
@@ -201,17 +197,11 @@ Buka http://localhost:3000.
 
 ## Catatan keamanan
 
-- "Kamu siapa" (Sean/Gavril) cuma disimpan di local storage HP masing-masing,
-  tanpa password — disengaja (aplikasi keluarga, bukan sistem multi-tenant).
-  Layar anak cuma menampilkan tugas milik identitas yang sedang dipilih di
-  HP itu, jadi Sean tidak akan melihat/mencentang tugas Gavril begitu juga
-  sebaliknya, selama masing-masing memilih namanya sendiri.
-- Mode Orang Tua dikunci PIN 6 digit (`PARENT_PIN`), diverifikasi di server
-  dan disimpan sebagai cookie httpOnly bertanda tangan selama 12 jam. Endpoint
-  yang mengubah tugas/tarif reward/persetujuan, dan endpoint yang membaca
-  tarif reward, semuanya menolak permintaan tanpa sesi Orang Tua yang valid —
-  jadi anak tidak bisa mengesahkan tugasnya sendiri atau mengakses data
-  reward lewat DevTools sekalipun.
-- Approval (`approved`) cuma bisa diset lewat endpoint yang memvalidasi tugas
-  itu sudah `done` (dilaporkan anak) lebih dulu — Ibu tidak bisa mengesahkan
-  tugas yang belum ditap anak sama sekali.
+- Aplikasi ini **tidak punya autentikasi apa pun** — siapa pun yang membuka
+  link deployment langsung bisa melihat dan mengubah semua data (tugas,
+  status harian, tarif reward). Jangan bagikan link ke orang yang tidak
+  berhak mengubah data.
+- `/api/cron/reminder` hanya bisa dipanggil dengan header `Authorization:
+  Bearer <CRON_SECRET>` yang cocok — Vercel otomatis mengirim header ini
+  saat memanggil cron job kalau `CRON_SECRET` sudah diset di environment
+  variables.

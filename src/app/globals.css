@@ -22,61 +22,6 @@ body {
   padding: 20px 16px 48px;
 }
 
-/* ---------- Layar pilih nama ---------- */
-
-.picker-screen {
-  position: relative;
-  overflow: hidden;
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  background: linear-gradient(160deg, #e6f2ff 0%, #eafff2 55%, #fff7e6 100%);
-}
-
-.picker-blob {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(55px);
-  opacity: 0.5;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.blob-a {
-  width: 300px;
-  height: 300px;
-  top: -70px;
-  left: -70px;
-  background: #2f7bff;
-}
-
-.blob-b {
-  width: 340px;
-  height: 340px;
-  bottom: -90px;
-  right: -90px;
-  background: #22b573;
-}
-
-.blob-c {
-  width: 220px;
-  height: 220px;
-  bottom: 8%;
-  left: -50px;
-  background: #ffb84d;
-}
-
-.picker-content {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 420px;
-  text-align: center;
-}
-
 h1 {
   font-size: 28px;
   font-weight: 800;
@@ -137,72 +82,12 @@ h1 {
   text-align: center;
 }
 
-.who-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 16px;
-  margin-bottom: 20px;
-}
-
-.who-bar b {
-  color: #12356b;
-}
-
-.change-btn {
-  border: none;
-  background: #e4ecfb;
-  color: #2f5fb3;
-  font-weight: 700;
-  font-size: 14px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.change-btn:active {
-  transform: scale(0.96);
-}
-
-.who-list {
+.notif-box {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 24px;
-}
-
-.who-btn {
-  border: none;
-  border-radius: 24px;
-  padding: 22px 24px;
-  font-size: 26px;
-  font-weight: 800;
-  color: #fff;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(20, 50, 100, 0.22);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.who-btn:active {
-  transform: scale(0.96);
-  box-shadow: 0 4px 10px rgba(20, 50, 100, 0.18);
-}
-
-.who-emoji {
-  font-size: 30px;
-  width: 54px;
-  height: 54px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .error-banner {
@@ -277,47 +162,15 @@ h1 {
   flex: 1;
 }
 
-/* dilaporkan anak (✅), belum disahkan Ibu */
-.task-row.reported {
+/* tugas selesai */
+.task-row.approved {
   background: #eafff1;
   border-color: #7fe0a4;
 }
 
-.task-row.reported .label {
-  text-decoration: line-through;
-  color: #5c7a68;
-}
-
-/* disahkan Ibu (✅✅) — final, dihitung untuk reward */
-.task-row.approved {
-  background: #fff8e1;
-  border-color: #f2c94c;
-}
-
 .task-row.approved .label {
   text-decoration: line-through;
-  color: #8a6d1f;
-}
-
-.task-row.static {
-  cursor: default;
-}
-
-.task-row.static:active {
-  transform: none;
-}
-
-.task-row.locked {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.task-row.locked:active {
-  transform: none;
-}
-
-.who-btn.parent {
-  background: #4a5568;
+  color: #5c7a68;
 }
 
 /* ---------- Progress & reward (tampilan Orang Tua) ---------- */
@@ -534,48 +387,3 @@ h1 {
   color: #4b5b73;
 }
 
-/* ---------- PIN Orang Tua ---------- */
-
-.pin-form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.pin-input {
-  width: 160px;
-  text-align: center;
-  font-size: 24px;
-  letter-spacing: 6px;
-  padding: 12px;
-  border: 2px solid #dbe4f2;
-  border-radius: 14px;
-}
-
-.pin-submit {
-  border: none;
-  background: #2f7bff;
-  color: #fff;
-  font-weight: 800;
-  font-size: 16px;
-  padding: 12px 32px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.pin-submit:disabled {
-  opacity: 0.5;
-}
-
-@media (min-width: 480px) {
-  .who-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .who-btn {
-    flex: 1;
-    min-width: 140px;
-  }
-}

@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllRewardRates, setRewardRate } from "@/lib/db";
-import { isParentRequest } from "@/lib/auth";
 import { isChildId } from "@/lib/children";
 
-// Parent-only untuk GET juga — tarif reward sengaja dirahasiakan dari anak.
-export async function GET(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
+export async function GET() {
   try {
     const rates = await getAllRewardRates();
     return NextResponse.json({ rates });
@@ -20,10 +15,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
-
   const body = await req.json().catch(() => null);
   const { childId, amountPerTask } = body ?? {};
 
