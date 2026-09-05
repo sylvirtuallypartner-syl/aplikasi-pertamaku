@@ -13,13 +13,19 @@ import {
   todayStr,
   weekDates,
 } from "@/lib/date";
-import { EMPTY_ENTRY, StatusEntry, statusIcon, statusRowClass } from "@/lib/status";
 import PinPad from "./PinPad";
 
 const STATUS_POLL_MS = 4000;
 const MAX_TASK_LABEL = 50;
 const MAX_TIER_LABEL = 60;
 const HISTORY_DAYS = 14;
+
+interface StatusEntry {
+  done: boolean;
+  approved: boolean;
+}
+
+const EMPTY_ENTRY: StatusEntry = { done: false, approved: false };
 
 interface RawTask {
   id: number;
@@ -58,7 +64,7 @@ function fmtRp(n: number): string {
   return "Rp" + n.toLocaleString("id-ID");
 }
 
-export default function ParentView({ onExit }: { onExit: () => void }) {
+export default function ParentView() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [followToday, setFollowToday] = useState(true);
@@ -72,10 +78,10 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
   const [weekByDate, setWeekByDate] = useState<ByDate>({});
   const [weekError, setWeekError] = useState<string | null>(null);
   const [weeklyTiers, setWeeklyTiers] = useState<WeeklyTier[]>([]);
-  const pendingApprove = useRef<Set<string>>(new Set());
+  const pendingToggle = useRef<Set<string>>(new Set());
 
-  const loadAll = useCallback(async () => {
-    const target = followToday ? todayStr() : viewDate;
+  const loadAll = useCallback(async (dateOverride?: string) => {
+    const target = dateOverride ?? (followToday ? todayStr() : viewDate);
     setViewDate(target);
     try {
       const [tasksRes, ratesRes, statusRes] = await Promise.all([
@@ -91,12 +97,12 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       if (!statusRes.ok) throw new Error(statusData.error);
       setTasks(tasksData.tasks);
       setRates(ratesData.rates);
-      // Baris yang lagi disetujui/dibatalkan (masih menunggu respons server)
-      // dipertahankan nilai optimistiknya, supaya tidak ketiban snapshot lama
-      // dari approve() lain yang berjalan bersamaan.
+      // Baris yang lagi ditap (masih menunggu respons server) dipertahankan
+      // nilai optimistiknya, supaya tidak ketiban snapshot lama dari
+      // toggleTask() lain yang berjalan bersamaan.
       setEntries((prevEntries) => {
         const next = { ...statusData.entries };
-        for (const key of pendingApprove.current) {
+        for (const key of pendingToggle.current) {
           if (key in prevEntries) next[key] = prevEntries[key];
         }
         return next;
@@ -161,11 +167,14 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
 
   function pickDate(value: string) {
     if (value === "today") {
+      const today = todayStr();
       setFollowToday(true);
-      setViewDate(todayStr());
+      setViewDate(today);
+      loadAll(today);
     } else {
       setFollowToday(false);
       setViewDate(value);
+      loadAll(value);
     }
   }
 
@@ -186,7 +195,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
 
   async function handleLogout() {
     await fetch("/api/parent-auth", { method: "DELETE" });
-    onExit();
+    setAuthenticated(false);
   }
 
   async function addTask(childId: ChildId, label: string, weekdayOnly: boolean, weekendOnly: boolean) {
@@ -248,25 +257,38 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
     await loadAll();
   }
 
-  async function approve(childId: ChildId, taskId: number, approved: boolean) {
+  // Orang tua tap tugas -> langsung dianggap selesai (done + approved
+  // sekaligus, satu langkah). Tap lagi untuk membatalkan.
+  async function toggleTask(childId: ChildId, taskId: number) {
     const key = `${childId}:${taskId}`;
     const prev = entries[key] ?? EMPTY_ENTRY;
-    pendingApprove.current.add(key);
-    setEntries((p) => ({ ...p, [key]: { ...prev, approved } }));
+    const nextValue = !prev.approved;
+    pendingToggle.current.add(key);
+    setEntries((p) => ({ ...p, [key]: { done: nextValue, approved: nextValue } }));
     try {
-      const res = await fetch("/api/approve", {
+      const statusRes = await fetch("/api/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ childId, taskId, date: viewDate, approved }),
+        body: JSON.stringify({ childId, taskId, date: viewDate, done: nextValue }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setEntries((p) => ({ ...p, [key]: prev }));
-        setError(data.error || "Gagal menyimpan persetujuan");
-        return;
+      const statusData = await statusRes.json();
+      if (!statusRes.ok) throw new Error(statusData.error || "Gagal menyimpan");
+
+      if (nextValue) {
+        const approveRes = await fetch("/api/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ childId, taskId, date: viewDate, approved: true }),
+        });
+        const approveData = await approveRes.json();
+        if (!approveRes.ok) throw new Error(approveData.error || "Gagal menyimpan");
       }
+      setError(null);
+    } catch (err) {
+      setEntries((p) => ({ ...p, [key]: prev }));
+      setError(err instanceof Error ? err.message : "Gagal menyimpan, coba tap lagi.");
     } finally {
-      pendingApprove.current.delete(key);
+      pendingToggle.current.delete(key);
     }
     await loadAll();
     await loadWeek();
@@ -327,14 +349,7 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
   if (!authChecked) return null;
 
   if (!authenticated) {
-    return (
-      <div>
-        <PinPad onSubmit={handlePinSubmit} />
-        <button className="change-btn" style={{ display: "block", margin: "16px auto 0" }} onClick={onExit}>
-          Batal
-        </button>
-      </div>
-    );
+    return <PinPad onSubmit={handlePinSubmit} />;
   }
 
   const weekend = isWeekendDate(viewDate);
@@ -361,9 +376,6 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       </div>
       <div className="date-label">{fullDateLabel(viewDate)}</div>
       <div className="who-bar">
-        <span>
-          Mode: <b>Orang Tua</b>
-        </span>
         <button className="change-btn" onClick={handleLogout}>
           Keluar
         </button>
@@ -374,11 +386,10 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
       {CHILD_ORDER.map((childId) => {
         const child = CHILDREN[childId];
         const today = tasksForToday(allTaskDefs, childId, weekend);
-        const doneCount = today.filter((t) => entries[`${childId}:${t.id}`]?.done).length;
-        const approvedCount = today.filter((t) => entries[`${childId}:${t.id}`]?.approved).length;
-        const percent = today.length ? Math.round((doneCount / today.length) * 100) : 0;
+        const completedCount = today.filter((t) => entries[`${childId}:${t.id}`]?.approved).length;
+        const percent = today.length ? Math.round((completedCount / today.length) * 100) : 0;
         const rate = rates.find((r) => r.child_id === childId)?.amount_per_task ?? 0;
-        const todayReward = approvedCount * rate;
+        const todayReward = completedCount * rate;
         const childTasks = tasks
           .filter((t) => t.child_id === childId)
           .sort((a, b) => a.sort_order - b.sort_order);
@@ -410,35 +421,31 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
                 <div className="progress-fill" style={{ width: `${percent}%`, background: child.color }} />
               </div>
               <span className="progress-text">
-                {doneCount}/{today.length} dilaporkan ({percent}%)
+                {completedCount}/{today.length} selesai ({percent}%)
               </span>
-            </div>
-            <div className="progress-row">
-              <span className="progress-text">{approvedCount}/{today.length} disetujui Ibu</span>
             </div>
 
             <div className="reward-box" style={{ borderColor: child.color }}>
-              🎁 Reward hari ini: <b>{fmtRp(todayReward)}</b> ({approvedCount} tugas disetujui &times; {fmtRp(rate)})
+              🎁 Reward hari ini: <b>{fmtRp(todayReward)}</b> ({completedCount} tugas selesai &times; {fmtRp(rate)})
             </div>
 
-            <ul className="task-list readonly">
+            <ul className="task-list">
               {today.map((task) => {
                 const entry = entries[`${childId}:${task.id}`] ?? EMPTY_ENTRY;
                 return (
                   <li key={task.id}>
                     <button
-                      className={`task-row static ${statusRowClass(entry)} ${entry.done ? "" : "locked"}`}
-                      disabled={!entry.done}
-                      onClick={() => entry.done && approve(childId, task.id, !entry.approved)}
+                      className={`task-row ${entry.approved ? "approved" : ""}`}
+                      onClick={() => toggleTask(childId, task.id)}
+                      aria-pressed={entry.approved}
                     >
-                      <span className="check">{statusIcon(entry)}</span>
+                      <span className="check">{entry.approved ? "✅" : "⬜"}</span>
                       <span className="label">{task.label}</span>
                     </button>
                   </li>
                 );
               })}
             </ul>
-            <p className="subtitle small">Tap tugas yang sudah dilaporkan (✅) untuk mengesahkan/batalkan (✅✅).</p>
 
             <div className="week-recap">
               <div className="week-recap-header">
@@ -458,14 +465,14 @@ export default function ParentView({ onExit }: { onExit: () => void }) {
               </div>
               {weekError && <div className="error-banner">{weekError}</div>}
               <div className="reward-box" style={{ borderColor: child.color }}>
-                💰 Reward minggu ini: <b>{fmtRp(weekReward)}</b> ({weekApproved} tugas disetujui &times; {fmtRp(rate)})
+                💰 Reward minggu ini: <b>{fmtRp(weekReward)}</b> ({weekApproved} tugas selesai &times; {fmtRp(rate)})
               </div>
               <div className="progress-row">
                 <div className="progress-track">
                   <div className="progress-fill" style={{ width: `${weekPercent}%`, background: child.color }} />
                 </div>
                 <span className="progress-text">
-                  {weekApproved}/{weekApplicable} disetujui ({weekPercent}%)
+                  {weekApproved}/{weekApplicable} selesai ({weekPercent}%)
                 </span>
               </div>
               {reachedTier ? (

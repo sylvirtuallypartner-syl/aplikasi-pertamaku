@@ -5,8 +5,11 @@ import { isChildId } from "@/lib/children";
 
 const MAX_LABEL_LEN = 50;
 
-// Publik — daftar tugas perlu terlihat di tampilan anak juga.
-export async function GET() {
+// Parent-only — app ini sekarang khusus tampilan Orang Tua.
+export async function GET(req: NextRequest) {
+  if (!isParentRequest(req)) {
+    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
+  }
   try {
     const tasks = await getAllTasks();
     return NextResponse.json({ tasks });
