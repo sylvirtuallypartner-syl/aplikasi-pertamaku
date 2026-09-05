@@ -82,34 +82,6 @@ h1 {
   text-align: center;
 }
 
-.who-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 16px;
-  margin-bottom: 20px;
-}
-
-.who-bar b {
-  color: #12356b;
-}
-
-.change-btn {
-  border: none;
-  background: #e4ecfb;
-  color: #2f5fb3;
-  font-weight: 700;
-  font-size: 14px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.change-btn:active {
-  transform: scale(0.96);
-}
-
 .error-banner {
   background: #ffe6e6;
   color: #a12727;
@@ -407,37 +379,3 @@ h1 {
   color: #4b5b73;
 }
 
-/* ---------- PIN Orang Tua ---------- */
-
-.pin-form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.pin-input {
-  width: 160px;
-  text-align: center;
-  font-size: 24px;
-  letter-spacing: 6px;
-  padding: 12px;
-  border: 2px solid #dbe4f2;
-  border-radius: 14px;
-}
-
-.pin-submit {
-  border: none;
-  background: #2f7bff;
-  color: #fff;
-  font-weight: 800;
-  font-size: 16px;
-  padding: 12px 32px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.pin-submit:disabled {
-  opacity: 0.5;
-}

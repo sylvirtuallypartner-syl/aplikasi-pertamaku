@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCompletionsForDate, setCompletion } from "@/lib/db";
 import { isValidDateStr } from "@/lib/date";
 import { isChildId } from "@/lib/children";
-import { isParentRequest } from "@/lib/auth";
 
-// Parent-only — app ini sekarang khusus tampilan Orang Tua.
 export async function GET(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
   const date = req.nextUrl.searchParams.get("date");
   if (!isValidDateStr(date)) {
     return NextResponse.json({ error: "Tanggal tidak valid" }, { status: 400 });
@@ -29,10 +24,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
-
   const body = await req.json().catch(() => null);
   const { childId, taskId, date, done } = body ?? {};
 

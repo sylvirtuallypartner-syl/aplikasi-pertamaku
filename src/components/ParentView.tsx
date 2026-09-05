@@ -13,7 +13,6 @@ import {
   todayStr,
   weekDates,
 } from "@/lib/date";
-import PinPad from "./PinPad";
 
 const STATUS_POLL_MS = 4000;
 const MAX_TASK_LABEL = 50;
@@ -65,8 +64,6 @@ function fmtRp(n: number): string {
 }
 
 export default function ParentView() {
-  const [authChecked, setAuthChecked] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
   const [followToday, setFollowToday] = useState(true);
   const [viewDate, setViewDate] = useState(todayStr());
   const [tasks, setTasks] = useState<RawTask[]>([]);
@@ -139,31 +136,22 @@ export default function ParentView() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/parent-auth", { cache: "no-store" });
-      const data = await res.json();
-      setAuthenticated(!!data.authenticated);
-      setAuthChecked(true);
-      if (data.authenticated) {
-        loadAll();
-        loadWeek();
-        loadWeeklyTiers();
-      }
-    })();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAll();
+    loadWeek();
+    loadWeeklyTiers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!authenticated) return;
     const id = setInterval(loadAll, STATUS_POLL_MS);
     return () => clearInterval(id);
-  }, [authenticated, loadAll]);
+  }, [loadAll]);
 
   useEffect(() => {
-    if (!authenticated) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadWeek();
-  }, [authenticated, loadWeek]);
+  }, [loadWeek]);
 
   function pickDate(value: string) {
     if (value === "today") {
@@ -176,26 +164,6 @@ export default function ParentView() {
       setViewDate(value);
       loadAll(value);
     }
-  }
-
-  async function handlePinSubmit(pin: string): Promise<string | null> {
-    const res = await fetch("/api/parent-auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin }),
-    });
-    const data = await res.json();
-    if (!res.ok) return data.error || "PIN salah";
-    setAuthenticated(true);
-    loadAll();
-    loadWeek();
-    loadWeeklyTiers();
-    return null;
-  }
-
-  async function handleLogout() {
-    await fetch("/api/parent-auth", { method: "DELETE" });
-    setAuthenticated(false);
   }
 
   async function addTask(childId: ChildId, label: string, weekdayOnly: boolean, weekendOnly: boolean) {
@@ -346,12 +314,6 @@ export default function ParentView() {
     await loadWeeklyTiers();
   }
 
-  if (!authChecked) return null;
-
-  if (!authenticated) {
-    return <PinPad onSubmit={handlePinSubmit} />;
-  }
-
   const weekend = isWeekendDate(viewDate);
   const allTaskDefs = tasks.map(toTaskDef);
   const historyDates = lastNDays(HISTORY_DAYS).slice(1);
@@ -375,11 +337,6 @@ export default function ParentView() {
         </select>
       </div>
       <div className="date-label">{fullDateLabel(viewDate)}</div>
-      <div className="who-bar">
-        <button className="change-btn" onClick={handleLogout}>
-          Keluar
-        </button>
-      </div>
 
       {error && <div className="error-banner">{error}</div>}
 

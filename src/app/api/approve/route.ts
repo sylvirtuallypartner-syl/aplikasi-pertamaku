@@ -2,14 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { setApproval } from "@/lib/db";
 import { isValidDateStr } from "@/lib/date";
 import { isChildId } from "@/lib/children";
-import { isParentRequest } from "@/lib/auth";
 
-// Parent-only — cuma Ibu (setelah PIN) yang boleh mengesahkan tugas anak.
 export async function POST(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
-
   const body = await req.json().catch(() => null);
   const { childId, taskId, date, approved } = body ?? {};
 

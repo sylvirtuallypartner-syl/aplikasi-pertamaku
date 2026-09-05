@@ -5,8 +5,8 @@ dan Gavril (6 tahun) dan menghitung reward-nya. Tidak ada layar/login
 terpisah untuk anak — Ibu yang langsung mencentang tugas begitu tugasnya
 selesai dikerjakan.
 
-- Satu layar, dikunci **PIN 6 digit** — begitu buka link, langsung diminta
-  PIN, tidak ada langkah lain sebelumnya.
+- Satu layar, **tanpa PIN atau login apa pun** — begitu buka link, langsung
+  masuk ke dashboard.
 - Kedua anak tampil di layar yang sama. Tap tugas = langsung dianggap
   selesai (⬜ → ✅). Tap lagi untuk membatalkan kalau salah pencet.
 - Tugas untuk hari kerja dan akhir pekan bisa berbeda, muncul otomatis
@@ -31,7 +31,7 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 
 ## Cara pakai
 
-1. Buka link Vercel, masukkan PIN (6 digit).
+1. Buka link Vercel — langsung masuk ke dashboard, tidak ada layar login.
 2. Kedua anak (Sean & Gavril) langsung tampil di satu layar dengan daftar
    tugas hari ini masing-masing.
 3. Tap tugas begitu selesai dikerjakan — status berubah ⬜ → ✅, dan reward
@@ -51,7 +51,6 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
    favorit) — tambah, edit, atau hapus tier, per anak. Kalau minggu itu
    mencapai lebih dari satu ambang, yang dipakai cuma yang tertinggi
    (tidak menumpuk).
-9. Tap **Keluar** untuk logout.
 
 ## Struktur teknis
 
@@ -68,14 +67,15 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
   jadi tidak ada lagi tahap "menunggu disahkan". Data lama dari sebelum
   perubahan ini (kalau ada baris yang `done` tapi belum `approved`) tetap
   tersimpan apa adanya, cuma tampil sebagai belum selesai.
-- **Semua endpoint API sekarang parent-only** (mengecek cookie sesi PIN) —
-  termasuk yang dulunya publik untuk tampilan anak (`GET/POST /api/status`,
-  `GET /api/tasks`), karena sekarang tidak ada lagi akses anak sama sekali.
+- **Tidak ada autentikasi sama sekali** — semua endpoint API terbuka untuk
+  siapa pun yang punya link (dulu ada gerbang PIN, sekarang dihapus supaya
+  langsung masuk tanpa hambatan). Jangan bagikan link deployment ke orang
+  yang tidak berhak mengubah data.
 - **Tarif reward** (`reward_rates`, satu baris per anak — jumlah Rupiah per
   tugas selesai) dan **reward mingguan non-uang** (`weekly_reward_tiers`,
-  bisa banyak tier per anak) sama-sama parent-only.
-- **Rekap mingguan** dihitung dari `GET /api/status/range` (parent-only),
-  mengambil status 7 hari sekaligus lalu diagregasi di klien memakai daftar
+  bisa banyak tier per anak) bisa diubah lewat aplikasi.
+- **Rekap mingguan** dihitung dari `GET /api/status/range`, mengambil status
+  7 hari sekaligus lalu diagregasi di klien memakai daftar
   tugas & tarif reward **saat ini** (bukan snapshot historis — kalau tugas
   atau tarif diubah, rekap minggu lalu ikut memakai angka yang baru).
 - **Urutan tugas** (`tasks.sort_order`) bisa diubah lewat `PATCH
@@ -138,27 +138,14 @@ psql "$DATABASE_URL" -f migrations/002_approval.sql
 psql "$DATABASE_URL" -f migrations/003_weekly_reward.sql
 ```
 
-### 4. Set PIN Orang Tua
+### 4. Selesai
 
-Di Vercel → Project Settings → Environment Variables, tambahkan:
-
-```
-PARENT_PIN=482913
-```
-
-**Harus 6 digit angka** (ganti `482913` dengan angka pilihanmu sendiri —
-jangan yang gampang ditebak seperti 111111 atau 123456). Redeploy sekali
-setelah menambahkan/mengubah variable ini kalau deployment sebelumnya sudah
-berjalan duluan.
-
-### 5. Selesai
-
-Buka URL deployment — langsung diminta PIN.
+Buka URL deployment — langsung masuk ke dashboard.
 
 ## Development lokal (opsional)
 
 ```bash
-vercel env pull .env.local   # menarik DATABASE_URL & PARENT_PIN dari Vercel
+vercel env pull .env.local   # menarik DATABASE_URL dari Vercel
 npm install
 npm run dev
 ```
@@ -167,8 +154,7 @@ Buka http://localhost:3000.
 
 ## Catatan keamanan
 
-- Aplikasi ini sepenuhnya dikunci PIN 6 digit (`PARENT_PIN`) sejak layar
-  pertama — tidak ada bagian mana pun yang bisa diakses tanpa PIN.
-- PIN diverifikasi di server dan disimpan sebagai cookie httpOnly bertanda
-  tangan selama 12 jam. Semua endpoint API (baca maupun tulis) menolak
-  permintaan tanpa sesi yang valid.
+- Aplikasi ini **tidak punya autentikasi apa pun** — siapa pun yang membuka
+  link deployment langsung bisa melihat dan mengubah semua data (tugas,
+  status harian, tarif reward). Jangan bagikan link ke orang yang tidak
+  berhak mengubah data.

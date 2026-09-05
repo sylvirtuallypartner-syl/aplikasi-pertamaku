@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteWeeklyTier, updateWeeklyTier } from "@/lib/db";
-import { isParentRequest } from "@/lib/auth";
 
 const MAX_LABEL_LEN = 60;
 
@@ -13,9 +12,6 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
   const id = parseId((await params).id);
   if (id === null) {
     return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
@@ -51,9 +47,6 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
   const id = parseId((await params).id);
   if (id === null) {
     return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });

@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createWeeklyTier, getAllWeeklyTiers } from "@/lib/db";
-import { isParentRequest } from "@/lib/auth";
 import { isChildId } from "@/lib/children";
 
 const MAX_LABEL_LEN = 60;
 
-// Parent-only untuk GET juga — sama seperti tarif reward harian.
-export async function GET(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
+export async function GET() {
   try {
     const tiers = await getAllWeeklyTiers();
     return NextResponse.json({ tiers });
@@ -22,10 +17,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isParentRequest(req)) {
-    return NextResponse.json({ error: "Perlu login Orang Tua" }, { status: 401 });
-  }
-
   const body = await req.json().catch(() => null);
   const { childId, minPercent, label } = body ?? {};
 

@@ -77,9 +77,6 @@ export async function setCompletion(
   `;
 }
 
-// Dipanggil oleh Ibu (tampilan Orang Tua, PIN). Cuma boleh mengesahkan tugas
-// yang sudah dilaporkan anak (done = true) — kalau belum, tidak ada baris
-// yang cocok dan fungsi ini melempar error.
 export async function setApproval(
   childId: string,
   taskId: number,
