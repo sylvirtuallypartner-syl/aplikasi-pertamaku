@@ -229,3 +229,31 @@ export async function deleteWeeklyTier(id: number): Promise<void> {
   const sql = getSql();
   await sql`delete from weekly_reward_tiers where id = ${id}`;
 }
+
+// ---------- push notifications (reminder harian) ----------
+
+export interface PushSubscriptionRow {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+export async function savePushSubscription(sub: PushSubscriptionRow): Promise<void> {
+  const sql = getSql();
+  await sql`
+    insert into push_subscriptions (endpoint, p256dh, auth)
+    values (${sub.endpoint}, ${sub.p256dh}, ${sub.auth})
+    on conflict (endpoint) do update set p256dh = excluded.p256dh, auth = excluded.auth
+  `;
+}
+
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  const sql = getSql();
+  await sql`delete from push_subscriptions where endpoint = ${endpoint}`;
+}
+
+export async function getAllPushSubscriptions(): Promise<PushSubscriptionRow[]> {
+  const sql = getSql();
+  const rows = await sql`select endpoint, p256dh, auth from push_subscriptions`;
+  return rows as unknown as PushSubscriptionRow[];
+}

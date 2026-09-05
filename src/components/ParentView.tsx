@@ -13,6 +13,7 @@ import {
   todayStr,
   weekDates,
 } from "@/lib/date";
+import NotificationSetup from "./NotificationSetup";
 
 const STATUS_POLL_MS = 4000;
 const MAX_TASK_LABEL = 50;
@@ -337,6 +338,8 @@ export default function ParentView() {
         </select>
       </div>
       <div className="date-label">{fullDateLabel(viewDate)}</div>
+
+      <NotificationSetup />
 
       {error && <div className="error-banner">{error}</div>}
 

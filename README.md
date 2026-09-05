@@ -25,9 +25,12 @@ selesai dikerjakan.
   beda-beda per anak.
 - Urutan tugas di **Kelola daftar tugas** bisa diubah pakai tombol ▲/▼, jadi
   tugas baru tidak harus nyangkut di paling bawah.
+- **Reminder notifikasi harian** (opsional, jam 20:00 WIB): kalau diaktifkan,
+  HP akan dapat notifikasi push kalau masih ada tugas yang belum dicentang
+  hari itu — jadi tidak khawatir lupa. Tidak pakai email atau WhatsApp.
 
-Tidak ada notifikasi, tidak ada dark mode, tidak ada pengaturan lain di luar
-itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
+Tidak ada dark mode atau pengaturan lain di luar itu — sengaja dibuat
+sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 
 ## Cara pakai
 
@@ -51,6 +54,13 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
    favorit) — tambah, edit, atau hapus tier, per anak. Kalau minggu itu
    mencapai lebih dari satu ambang, yang dipakai cuma yang tertinggi
    (tidak menumpuk).
+9. **Reminder notifikasi**: tombol "🔔 Aktifkan reminder harian" di bagian
+   atas. Sekali diaktifkan di satu HP, HP itu akan dapat notifikasi push
+   jam 20:00 WIB kalau masih ada tugas yang belum dicentang hari itu. Tap
+   "🔕 Matikan reminder harian" untuk mematikan lagi. **Khusus iPhone**:
+   Safari cuma bisa kirim notifikasi push kalau halaman ini sudah di-"Add to
+   Home Screen" dulu (Share → Add to Home Screen), baru dibuka dari ikon di
+   home screen itu, baru tombol Aktifkan-nya bisa dipakai.
 
 ## Struktur teknis
 
@@ -84,6 +94,13 @@ itu — sengaja dibuat sesederhana mungkin supaya cepat dipakai rutin tiap hari.
 - **Sinkron antar HP**: polling ke server tiap 4 detik + saat layar dibuka
   lagi, dan langsung memuat ulang begitu ganti tanggal dari dropdown
   (tidak menunggu jadwal polling berikutnya).
+- **Reminder notifikasi** pakai Web Push standar (service worker di
+  `public/sw.js`) + Vercel Cron yang memanggil `GET /api/cron/reminder`
+  tiap hari jam 20:00 WIB (`vercel.json`). Cron ini menghitung tugas yang
+  belum di-approve hari itu untuk kedua anak, dan kalau ada yang belum,
+  kirim satu notifikasi ke semua HP yang sudah mengaktifkan (tabel
+  `push_subscriptions`). Langganan yang sudah tidak valid (HP uninstall
+  app/ganti browser) otomatis dihapus saat pengiriman gagal.
 
 ### Kenapa tanggal "hari ini" bisa salah?
 
@@ -124,10 +141,12 @@ Next.js, tidak perlu ubah setting apa pun.
 3. Kalau database ini **sudah pernah** kamu setup sebelumnya (sudah ada
    tabel `completions`), jalankan juga
    [`migrations/002_approval.sql`](migrations/002_approval.sql) (kolom
-   `approved`) dan [`migrations/003_weekly_reward.sql`](migrations/003_weekly_reward.sql)
-   (tabel `weekly_reward_tiers`) di SQL editor yang sama. Keduanya aman
-   dijalankan berkali-kali, dan **tidak menghapus data tugas yang sudah
-   tercatat** — hanya menambah struktur yang belum ada.
+   `approved`), [`migrations/003_weekly_reward.sql`](migrations/003_weekly_reward.sql)
+   (tabel `weekly_reward_tiers`), dan
+   [`migrations/004_push_notifications.sql`](migrations/004_push_notifications.sql)
+   (tabel `push_subscriptions`, untuk reminder notifikasi) di SQL editor
+   yang sama. Semuanya aman dijalankan berkali-kali, dan **tidak menghapus
+   data tugas yang sudah tercatat** — hanya menambah struktur yang belum ada.
 
 Alternatif lewat terminal (kalau punya `psql`):
 
@@ -136,9 +155,33 @@ vercel env pull .env.local   # ambil DATABASE_URL dari Vercel
 psql "$DATABASE_URL" -f migrations/001_init.sql
 psql "$DATABASE_URL" -f migrations/002_approval.sql
 psql "$DATABASE_URL" -f migrations/003_weekly_reward.sql
+psql "$DATABASE_URL" -f migrations/004_push_notifications.sql
 ```
 
-### 4. Selesai
+### 4. Aktifkan reminder notifikasi (opsional)
+
+Lewati langkah ini kalau tidak butuh reminder — aplikasi tetap jalan normal
+tanpa notifikasi.
+
+1. Generate sepasang kunci VAPID (sekali saja, di komputer mana pun yang ada
+   Node.js):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+2. Di Vercel → Project Settings → Environment Variables, tambahkan tiga
+   variable ini (Production, Preview, Development):
+   ```
+   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<Public Key dari langkah 1>
+   VAPID_PRIVATE_KEY=<Private Key dari langkah 1>
+   CRON_SECRET=<string acak bebas, mis. hasil generate password>
+   ```
+3. Redeploy sekali (Vercel otomatis menjadwalkan cron dari `vercel.json`
+   setelah deploy berikutnya).
+4. Buka aplikasi, tap **🔔 Aktifkan reminder harian** di tiap HP yang mau
+   dapat notifikasi. Ulangi di HP lain kalau lebih dari satu orang tua mau
+   dapat reminder.
+
+### 5. Selesai
 
 Buka URL deployment — langsung masuk ke dashboard.
 
@@ -158,3 +201,7 @@ Buka http://localhost:3000.
   link deployment langsung bisa melihat dan mengubah semua data (tugas,
   status harian, tarif reward). Jangan bagikan link ke orang yang tidak
   berhak mengubah data.
+- `/api/cron/reminder` hanya bisa dipanggil dengan header `Authorization:
+  Bearer <CRON_SECRET>` yang cocok — Vercel otomatis mengirim header ini
+  saat memanggil cron job kalau `CRON_SECRET` sudah diset di environment
+  variables.

@@ -52,6 +52,15 @@ create table if not exists weekly_reward_tiers (
 
 create index if not exists weekly_reward_tiers_child_idx on weekly_reward_tiers (child_id, min_percent desc);
 
+-- Langganan push notification (reminder harian kalau ada tugas yang belum
+-- dicentang) — satu baris per perangkat/browser yang mengaktifkan notifikasi.
+create table if not exists push_subscriptions (
+  endpoint text primary key,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+
 -- ============== SEED: tugas awal (bisa diedit lewat tampilan Orang Tua) ==============
 insert into tasks (child_id, label, weekday_only, weekend_only, sort_order)
 select * from (values
